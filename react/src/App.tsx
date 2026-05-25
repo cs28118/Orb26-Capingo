@@ -9,18 +9,15 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Set up the persistent security watcher
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      setLoading(false); // Stop showing the loading splash once Firebase answers
+      setLoading(false);
     });
-
-    // Clean up the watcher when the component unmounts
     return () => unsubscribe();
   }, []);
 
-  // Show a cozy loading text while checking the login token
+  {/*loading screen*/}
   if (loading) {
     return (
       <div style={{
@@ -33,12 +30,12 @@ function App() {
         fontFamily: 'sans-serif',
         fontSize: '1.2rem'
       }}>
-        Loading Capingo... 🍊
+        Loading Capingo...
       </div>
     );
   }
 
-  // The Dynamic Auth Gate Switch
+  {/*login or not*/}
   return (
     <>
       {user ? <Home /> : <Login />}

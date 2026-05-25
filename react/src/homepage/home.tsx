@@ -4,8 +4,8 @@ import type { User } from 'firebase/auth';
 import { auth } from '../firebaseAuth/firebase';
 import './home.css';
 
-//typescript of homepage
 export const Home: React.FC = () => {
+    {/*typescript part*/}
     const [user, setUser] = useState<User | null>(null);
     const [activeTab, setActiveTab] = useState<string>('dashboard');
 
@@ -27,14 +27,15 @@ export const Home: React.FC = () => {
         }
     };
 
-    //html of homepage
+    {/*html part*/}
     return (
         <div className="home">
             <aside className="sidebar">
                 <div className="logo">
                     <h1>Capingo</h1>
                 </div>
-                <nav className="menu">
+                 {/*active tab for temporary use*/}
+                <nav className="menu"> 
                     <button
                     className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
                         Dashboard
@@ -68,11 +69,13 @@ export const Home: React.FC = () => {
                     <p>Ready to study?</p>
                 </header>
 
+                {/*active tab for temporary use*/}
                 <div className="main-content">
-                    {activeTab === 'dashboard' && <div className="welcome-card">This is your dashboard!</div>}
-                    {activeTab === 'timetable' && <div className="placeholder-view">Timetable here!</div>}
-                    {activeTab === 'flashcards' && <div className="placeholder-view">Flashcards here!</div>}
-                    {activeTab === 'chatbot' && <div className="placeholder-view">Capybara Chatbot here!</div>}
+                    {activeTab === 'dashboard' && <div className="placeholder">This is your dashboard!</div>}
+                    {activeTab === 'timetable' && <div className="placeholder">Timetable here!</div>}
+                    {activeTab === 'flashcards' && <div className="placeholder">Flashcards here!</div>}
+                    {activeTab === 'chatbot' && <div className="placeholder">Capybara Chatbot here!</div>}
+                    {activeTab === 'collaboration' && <div className="placeholder">Collaboration Space here!</div>}
                 </div>
             </main>
         </div>

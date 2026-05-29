@@ -10,7 +10,7 @@ export default function Home() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-useEffect(() => {
+    useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
@@ -42,7 +42,7 @@ useEffect(() => {
     {/* html part */}
     return (
         <div className="home">
-            <aside className="sidebar">
+            <header className="sidebar">
                 <div className="logo">
                     <h1>Capingo</h1>
                 </div>
@@ -69,18 +69,16 @@ useEffect(() => {
                     </NavLink>
                 </nav>
 
-                <button className="btn-logout" onClick={handleLogout}> 
-                    Log Out
-                </button>
-            </aside>
+                <div className="user-profile-logout">
+                    <span className="user-welcome">Hi, {user?.displayName || 'Capy'}!</span>
+                    <button className="btn-logout" onClick={handleLogout}> 
+                        Log Out
+                    </button>
+                </div>
+            </header>
 
-            <main className="main">
-                <header className="main-header">
-                    <h1>Welcome back, {user?.displayName || 'Capy Friend'}!</h1>
-                    <p>Ready to study?</p>
-                </header>
-
-                <div className="main-content">
+            <main className="main-content">
+                <div className="inner-view">
                     <Outlet />
                 </div>
             </main>

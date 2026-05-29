@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
-        GoogleAuthProvider, signInWithPopup
+        GoogleAuthProvider, signInWithPopup,
+        onAuthStateChanged
         } from 'firebase/auth';
 import { auth } from '../firebaseAuth/firebase';
+import { useNavigate } from "react-router";
 import './login.css';
 
 //typescript of login page
-export const Login: React.FC = () => {
+export default function Login() {
     const [name, setName] = useState<string>(''); //user name
     const [email, setEmail] = useState<string>(''); //user email
     const [password, setPassword] = useState<string>(''); //user password
     const [isRegistering, setIsRegistering] = useState<boolean>(false); //user is registering or signing in
     const [error, setError] = useState<string>(''); //error message appear
     const [loading, setLoading] = useState<boolean>(false); //loading state
+    const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,6 +31,7 @@ export const Login: React.FC = () => {
         } else { //if not in registering state sign in
             await signInWithEmailAndPassword(auth, email, password);
             console.log("Logged in successfully!");
+            navigate("/home");
         }
         } catch (err: any) {
             switch (err.code) {
@@ -56,6 +60,7 @@ export const Login: React.FC = () => {
         try {
             const result = await signInWithPopup(auth, provider);
             console.log("Google Login Successful! User:", result.user.displayName);
+            navigate("/home");
         } catch (err: any) {
             if (err.code !== 'auth/popup-closed-by-user') {
                 setError('Failed to sign in with Google. Please try again.');
@@ -64,6 +69,17 @@ export const Login: React.FC = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // Listen to see if a user session already exists
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (currentUser) {
+                console.log("User already logged in! Redirecting to workspace...");
+                navigate("/home", { replace: true }); // Automatically bypasses the login screen
+            }
+        });
+        return () => unsubscribe();
+    }, [navigate]);
 
 
     //html of login page

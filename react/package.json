@@ -10,12 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-router/node": "^7.15.1",
     "firebase": "^12.13.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "isbot": "^5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@react-router/dev": "^7.15.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

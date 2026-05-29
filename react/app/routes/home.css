@@ -1,0 +1,141 @@
+/* home page styles */
+.home {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f2f2f2;
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100vw;
+  height: 56px;
+  min-height: 56px;
+  background-color: #f6d96a;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0 24px;
+  box-sizing: border-box;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mascot {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.logo h1 {
+  color: #3d2914;
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.menu {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  flex-grow: 1;
+  margin: 0 32px;
+  height: 100%;
+}
+
+.menu-item {
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #5c4a1f;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.15s ease;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+.menu-item.active {
+  background-color: #e8c84a;
+  color: #3d2914;
+}
+
+.user-profile-logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.user-welcome {
+  color: #5c4a1f;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.btn-logout {
+  background-color: rgba(255, 255, 255, 0.5);
+  color: #991b1b;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.15s ease;
+}
+
+.btn-logout:hover {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.main-content {
+  flex-grow: 1;
+  width: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background-color: #f2f2f2;
+}
+
+.main-content--chatbot {
+  overflow: hidden;
+}
+
+.inner-view {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+.inner-view--chatbot {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.loading-screen {
+  background-color: #fffcf4;
+  color: #5c4033;
+}

@@ -44,8 +44,8 @@ export default function Timetable() {
 
   // For Auto-Generation Interface
   const [selectedDay, setSelectedDay] = useState('');
-  const [selectedStart, setSelectedStart] = useState('');
-  const [selectedEnd, setSelectedEnd] = useState('');
+  const [selectedStart, setSelectedStart] = useState('8am');
+  const [selectedEnd, setSelectedEnd] = useState('9pm');
   const [breakStart, setBreakStart] = useState('');
   const [breakEnd, setBreakEnd] = useState('');
   const [enabledDays, setEnabledDays] = useState<string[]>([]);
@@ -107,73 +107,97 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
 };
 
   // Feature 3: Auto-generate timetable
-  const handleAutoGenerateSubmit = (e: React.FormEvent) => {
+const handleAutoGenerateSubmit = (e: React.FormEvent) => {
   e.preventDefault();
 
-  if (!selectedStart || !selectedEnd || !breakStart || !breakEnd || enabledDays.length === 0) {
+  const startStr = selectedStart || '8am';
+  const endStr = selectedEnd || '9pm';
+
+  if (enabledDays.length === 0 || !breakStart || !breakEnd) {
     alert("Please configure all settings (Days, Study Window, and Break Window) before generating!");
     return;
   }
 
   const generatedEvents: Event[] = [];
-  let currentDayIdx = 0;
-  
-  let currentHourIdx = timeslots.indexOf(selectedStart);
-  const endHourIdx = timeslots.indexOf(selectedEnd);
+  const startHourIdx = timeslots.indexOf(startStr);
+  const endHourIdx = timeslots.indexOf(endStr);
   const breakStartIdx = timeslots.indexOf(breakStart);
   const breakEndIdx = timeslots.indexOf(breakEnd);
 
+  // total hours
+  const totalHoursRequested = todoList.reduce((sum, task) => sum + task.hoursNeeded, 0);
+  let totalHoursScheduled = 0;
+
+  // sort by priority
   const sortedTasks = [...todoList].sort((a, b) => {
     const rank = { High: 3, Medium: 2, Low: 1 };
     return rank[b.priority] - rank[a.priority];
   });
 
+  const availableSlots: Record<string, Record<number, boolean>> = {};
+  
+  enabledDays.forEach((dayStr) => {
+    availableSlots[dayStr] = {};
+    for (let h = startHourIdx; h < endHourIdx; h++) {
+      if (h < breakStartIdx || h >= breakEndIdx) {
+        availableSlots[dayStr][h] = true;
+      }
+    }
+  });
+
   sortedTasks.forEach((task) => {
     let hoursRemaining = task.hoursNeeded;
 
-    while (hoursRemaining > 0 && currentDayIdx < enabledDays.length) {
-      const activeDayStr = enabledDays[currentDayIdx];
+    for (let d = 0; d < enabledDays.length; d++) {
+      const dayStr = enabledDays[d];
+      let h = startHourIdx;
 
-      if (currentHourIdx >= endHourIdx) {
-        currentHourIdx = timeslots.indexOf(selectedStart);
-        currentDayIdx++;
-        continue;
-      }
+      while (h < endHourIdx && hoursRemaining > 0) {
+        // check available continuous slots
+        if (availableSlots[dayStr][h]) {
+          let continuousLength = 0;
+          while (h + continuousLength < endHourIdx && availableSlots[dayStr][h + continuousLength] && continuousLength < hoursRemaining) {
+            continuousLength++;
+            // split
+            if (task.allowSplit && continuousLength === 2) break;
+          }
 
-      if (currentHourIdx >= breakStartIdx && currentHourIdx < breakEndIdx) {
-        currentHourIdx = breakEndIdx; 
-        continue;
-      }
+          // fittable
+          if (continuousLength > 0 && (task.allowSplit || continuousLength === hoursRemaining)) {
+            generatedEvents.push({
+              id: `auto_${task.id}_${Date.now()}_${d}_${h}`,
+              title: task.title,
+              day: dayStr,
+              startHour: timeslots[h],
+              duration: continuousLength
+            });
 
-      const blockDuration = task.allowSplit ? Math.min(hoursRemaining, 2) : hoursRemaining;
+            // Mark these slots as occupied
+            for (let i = 0; i < continuousLength; i++) {
+              availableSlots[dayStr][h + i] = false;
+            }
 
-      const fitsBeforeEnd = currentHourIdx + blockDuration <= endHourIdx;
-      const overlapsWithBreak = currentHourIdx < breakStartIdx && (currentHourIdx + blockDuration) > breakStartIdx;
-
-      if (fitsBeforeEnd && !overlapsWithBreak) {
-        generatedEvents.push({
-          id: `auto_${task.id}_${Date.now()}_${hoursRemaining}`,
-          title: task.title,
-          day: activeDayStr,
-          startHour: timeslots[currentHourIdx],
-          duration: blockDuration
-        });
-
-        hoursRemaining -= blockDuration;
-        currentHourIdx += blockDuration;
-      } else {
-        if (currentHourIdx < breakStartIdx) {
-          currentHourIdx = breakStartIdx;
+            hoursRemaining -= continuousLength;
+            totalHoursScheduled += continuousLength;
+            h += continuousLength;
+          } else {
+            h++; // large task
+          }
         } else {
-          currentHourIdx = timeslots.indexOf(selectedStart);
-          currentDayIdx++;
+          h++; // slot not available
         }
       }
+      if (hoursRemaining === 0) break; // task fully scheduled
     }
   });
 
   setEventsList(generatedEvents);
   closeModal();
+
+  if (totalHoursScheduled < totalHoursRequested) {
+    const missingHours = totalHoursRequested - totalHoursScheduled;
+    alert(`⚠️ Schedule full! Could not fit ${missingHours} hour(s) of your tasks into the configured study windows.`);
+  }
 };
 
   const toggleDayPill = (day: string) => {

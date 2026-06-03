@@ -107,6 +107,25 @@ Placeholder for shared study with others. Coming soon.
 
 ---
 
+## Require account
+Firebase console (login), Gemini API key (if using Gemini model for chatbot)
+
+### 1. Firebase console
+
+- Create new project
+- Authentication
+- Add new sign in provider (Email/Password & Google)
+- Project overview
+- Add new app (Web app)
+- Create new .env file locally in react file, paste in the keys according to .env.example file
+
+### 2. Google AI Studio
+
+- Create API key
+- Create new .env file locally in backend file, paste the key according to .env.example file
+
+---
+
 ## Getting started (local)
 
 You’ll run three pieces: **Ollama**, the **backend**, and the **website**.

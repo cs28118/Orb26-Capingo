@@ -1,0 +1,13 @@
+#!/bin/sh
+# Remove Cursor commit attribution (Co-authored-by / Made-with trailers).
+COMMIT_MSG_FILE=$1
+[ -f "$COMMIT_MSG_FILE" ] || exit 0
+
+# Git for Windows provides sed; macOS uses sed -i '' (handled below).
+if sed --version >/dev/null 2>&1; then
+  sed -i '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$COMMIT_MSG_FILE"
+else
+  sed -i '' '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$COMMIT_MSG_FILE"
+fi
+
+exit 0

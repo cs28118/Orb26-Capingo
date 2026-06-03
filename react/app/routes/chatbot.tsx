@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
 
 const STORAGE_KEY = 'capingo-chats';
+const RESET_MARKER = 'capingo-memory-reset-v2';
 
 const SUGGESTIONS = [
   'Summarise the water cycle',
@@ -126,6 +127,13 @@ export default function Chatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!localStorage.getItem(RESET_MARKER)) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(RESET_MARKER, '1');
+      setChats([]);
+      setActiveChatId(null);
+      return;
+    }
     const stored = loadChats();
     setChats(stored);
     if (stored.length > 0) {

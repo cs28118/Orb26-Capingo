@@ -4,6 +4,10 @@ import './chatbot.css';
 const STORAGE_KEY = 'capingo-chats';
 const RESET_MARKER = 'capingo-memory-reset-v2';
 
+const RECENT_WINDOW = 6;
+const SUMMARIZE_AFTER = 10;
+const SUMMARIZE_BATCH = 8;
+
 const SUGGESTIONS = [
   'Summarise the water cycle',
   'Give me a study plan for this week',
@@ -30,7 +34,11 @@ type Chat = {
   messages: Message[];
   pinned?: boolean;
   updatedAt: number;
+  memorySummary?: string;
+  memoryUpToIndex?: number;
 };
+
+type ApiMessage = { role: 'user' | 'assistant'; content: string };
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -108,8 +116,57 @@ function createChat(): Chat {
     id: `chat_${Date.now()}`,
     title: 'New chat',
     messages: [],
+    memoryUpToIndex: 0,
     updatedAt: Date.now(),
   };
+}
+
+function toApiMessages(messages: Message[]): ApiMessage[] {
+  return messages.map((m) => ({ role: m.role, content: m.content }));
+}
+
+function getRecentMessages(messages: Message[]): ApiMessage[] {
+  if (messages.length <= RECENT_WINDOW) return toApiMessages(messages);
+  return toApiMessages(messages.slice(-RECENT_WINDOW));
+}
+
+async function refreshMemorySummary(
+  chat: Chat,
+  messageCount: number,
+  base: string
+): Promise<{ memorySummary?: string; memoryUpToIndex: number }> {
+  let memorySummary = chat.memorySummary;
+  let memoryUpToIndex = chat.memoryUpToIndex ?? 0;
+
+  if (messageCount <= SUMMARIZE_AFTER) {
+    return { memorySummary, memoryUpToIndex };
+  }
+
+  const summarizeEnd = messageCount - RECENT_WINDOW;
+  if (summarizeEnd <= memoryUpToIndex) {
+    return { memorySummary, memoryUpToIndex };
+  }
+
+  while (memoryUpToIndex < summarizeEnd) {
+    const batchEnd = Math.min(memoryUpToIndex + SUMMARIZE_BATCH, summarizeEnd);
+    const batch = toApiMessages(chat.messages.slice(memoryUpToIndex, batchEnd));
+
+    const res = await fetch(`${base}/api/summarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ existingSummary: memorySummary, messages: batch }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `Summarize failed (${res.status})`);
+    }
+
+    memorySummary = data.summary || memorySummary;
+    memoryUpToIndex = batchEnd;
+  }
+
+  return { memorySummary, memoryUpToIndex };
 }
 
 function getApiBase(): string {
@@ -220,18 +277,30 @@ export default function Chatbot() {
     });
     setInput('');
 
-    const history = withUser.messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
     setIsLoading(true);
     try {
       const base = getApiBase();
+      const { memorySummary, memoryUpToIndex } = await refreshMemorySummary(
+        withUser,
+        withUser.messages.length,
+        base
+      );
+
+      if (memorySummary !== withUser.memorySummary || memoryUpToIndex !== (withUser.memoryUpToIndex ?? 0)) {
+        updateChat(chatId, (c) => ({
+          ...c,
+          memorySummary,
+          memoryUpToIndex,
+        }));
+      }
+
       const res = await fetch(`${base}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({
+          memorySummary,
+          messages: getRecentMessages(withUser.messages),
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -249,6 +318,8 @@ export default function Chatbot() {
 
       updateChat(chatId, (c) => ({
         ...c,
+        memorySummary,
+        memoryUpToIndex,
         messages: [...c.messages, assistantMessage],
         updatedAt: Date.now(),
       }));

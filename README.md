@@ -76,8 +76,9 @@ Your **AI study co-pilot**, powered by a language model on your computer via **O
 - Ask anything study-related — explanations, summaries, quiz help, study plans
 - Replies can use **bold text** and lists for readability
 - Your chats are **saved in the browser** so they survive a refresh
-- Each new message sends the **full conversation so far** to the AI so follow-up questions make sense
-- The AI itself doesn’t store your history — your browser keeps the log and sends it when needed
+- **Smart memory:** long conversations are **summarized in the browser** so the AI gets a short memory note plus only the **most recent messages** — not the entire chat log every time. This keeps replies fast and context-aware without overloading the model
+- **New chat** starts with a **fresh memory context** (no carry-over from other threads)
+- The AI itself doesn’t store your history — your browser keeps the full log for display and manages what gets sent to the model
 
 **Requirements**
 
@@ -107,22 +108,20 @@ Placeholder for shared study with others. Coming soon.
 
 ---
 
-## Require account
-Firebase console (login), Gemini API key (if using Gemini model for chatbot)
+## Account setup
 
-### 1. Firebase console
+Capingo needs a **Firebase** project for login. The chatbot uses **Ollama on your machine** (not a cloud AI API key).
 
-- Create new project
-- Authentication
-- Add new sign in provider (Email/Password & Google)
-- Project overview
-- Add new app (Web app)
-- Create new .env file locally in react file, paste in the keys according to .env.example file
+### Firebase (login)
 
-### 2. Google AI Studio
+1. Create a project in the [Firebase console](https://console.firebase.google.com/)
+2. Enable **Authentication** → sign-in providers: **Email/Password** and **Google**
+3. Register a **Web app** and copy the config keys
+4. In the `react/` folder, copy `.env.example` to `.env` and paste your Firebase keys
 
-- Create API key
-- Create new .env file locally in backend file, paste the key according to .env.example file
+### Backend (chatbot)
+
+In the `backend/` folder, copy `.env.example` to `.env`. Defaults work for local Ollama (`mistral` on port `11434`).
 
 ---
 
@@ -183,6 +182,7 @@ Open **http://localhost:5173/** in your browser.
 |--------|-------------|
 | Login fails or blank page | Check `react/.env` has correct Firebase settings |
 | Chatbot error | Ensure Ollama is running and `mistral` is in `ollama list` |
+| Chatbot slow on long threads | Normal on first summarize pass; later messages use cached summary + recent window |
 | Timetable generate does nothing | Add tasks first; set days, study hours, and break times in the popup |
 | Logo missing | Hard-refresh: `Ctrl + Shift + R` |
 | Slow first AI reply | Normal — the model loads into memory the first time |
@@ -193,10 +193,18 @@ Open **http://localhost:5173/** in your browser.
 
 ```text
 Orb26-Capingo/
-├── backend/     Server that connects the chatbot to Ollama
-├── react/         Website (login, timetable, chatbot, etc.)
-└── README.md      You are here
+├── backend/     API server (Ollama chat + summarize endpoints)
+├── react/       Website (login, timetable, chatbot, etc.)
+└── README.md    You are here
 ```
+
+**Chatbot API (backend)**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/chat` | Send recent messages + optional memory summary; get AI reply |
+| `POST` | `/api/summarize` | Compress older messages into a short memory note |
+| `GET` | `/api/health` | Check Ollama connectivity |
 
 ---
 
@@ -205,7 +213,7 @@ Orb26-Capingo/
 Ideas for future Capingo versions:
 
 - Flashcards and collaboration spaces
-- Saving chats to the cloud (per user) instead of only in the browser
+- Syncing chats to the cloud per logged-in user (today: browser-only storage + client-side memory)
 - Dashboard with upcoming tasks and recent activity
 - Clearer feedback when timetable generation can’t fit all tasks
 

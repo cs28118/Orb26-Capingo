@@ -10,6 +10,8 @@ export default function Home() {
     const [loading, setLoading] = useState<boolean>(true);
     const location = useLocation();
     const isChatbot = location.pathname.includes('/chatbot');
+    const isFlashcard = location.pathname.includes('/flashcard');
+    const isFullBleed = isChatbot || isFlashcard;
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -78,8 +80,8 @@ export default function Home() {
                 </div>
             </header>
 
-            <main className={`main-content ${isChatbot ? 'main-content--chatbot' : ''}`}>
-                <div className={`inner-view ${isChatbot ? 'inner-view--chatbot' : ''}`}>
+            <main className={`main-content ${isFullBleed ? 'main-content--chatbot' : ''}`}>
+                <div className={`inner-view ${isFullBleed ? 'inner-view--chatbot' : ''}`}>
                     <Outlet />
                 </div>
             </main>

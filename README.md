@@ -90,7 +90,21 @@ Your **AI study co-pilot**, powered by a language model on your computer via **O
 
 ### Flashcards
 
-Placeholder for future revision cards. Coming soon.
+Generate study cards from your **PDF notes** using Ollama (same local setup as the chatbot).
+
+**How it works**
+
+- **Upload** a text-based PDF (lecture notes, slides exported as PDF)
+- Choose **card count** (5–50) and **difficulty** (basic / standard / advanced)
+- Capingo AI extracts text and generates **question + answer** flashcards
+- **Edit** cards (change text, add, delete) — saved in your browser
+- **Study mode** — flip cards, previous/next, shuffle
+- **Multiple decks** — create, pin, rename, and delete decks
+
+**Requirements**
+
+- Ollama running with `mistral` (or your configured model)
+- PDF must contain **selectable text** (scanned image-only PDFs won't work)
 
 ---
 
@@ -204,6 +218,8 @@ Orb26-Capingo/
 |--------|------|---------|
 | `POST` | `/api/chat` | Send recent messages + optional memory summary; get AI reply |
 | `POST` | `/api/summarize` | Compress older messages into a short memory note |
+| `POST` | `/api/flashcards/parse-pdf` | Upload PDF (`multipart` field `file`); returns extracted text |
+| `POST` | `/api/flashcards/generate` | Generate flashcards from text via Ollama |
 | `GET` | `/api/health` | Check Ollama connectivity |
 
 ---

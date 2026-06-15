@@ -8,7 +8,7 @@ Repository: [github.com/cs28118/Orb26-Capingo](https://github.com/cs28118/Orb26-
 
 ## What Capingo does
 
-Capingo is meant to help you **organise study time**, **get answers when you're stuck**, and eventually **revise and collaborate** with classmates. Some areas are fully built; others are placeholders ready for future work.
+Capingo is meant to help you **organise study time**, **get answers when you're stuck**, and **revise** with AI-generated flashcards. Collaboration features are planned for later.
 
 ---
 
@@ -90,21 +90,35 @@ Your **AI study co-pilot**, powered by a language model on your computer via **O
 
 ### Flashcards
 
-Generate study cards from your **PDF notes** using Ollama (same local setup as the chatbot).
+Turn your **PDF notes** into study decks using Ollama (same local setup as the chatbot).
+
+**Layout**
+
+- **Left:** deck library — recent decks, **+ New**, pin decks
+- **Main:** upload flow, card editor, or study mode
 
 **How it works**
 
-- **Upload** a text-based PDF (lecture notes, slides exported as PDF)
-- Choose **card count** (5–50) and **difficulty** (basic / standard / advanced)
-- Capingo AI extracts text and generates **question + answer** flashcards
-- **Edit** cards (change text, add, delete) — saved in your browser
-- **Study mode** — flip cards, previous/next, shuffle
-- **Multiple decks** — create, pin, rename, and delete decks
+1. Click **+ New** and **upload a PDF** (max 10 MB)
+2. Capingo extracts text from the PDF on the server
+3. Choose **deck title**, **card count** (5–50), and **difficulty**:
+   - **Basic** — key terms and definitions
+   - **Standard** — concepts with short examples
+   - **Advanced** — exam-style application questions
+4. Ollama generates **front** (question/term) and **back** (answer) cards
+5. **Edit** cards — change text, add, or delete before studying
+6. **Study mode** — flip cards (click or Space), previous/next, shuffle
+7. Decks are **saved in your browser** (`localStorage`) — they persist across refresh
+
+**Supported PDFs**
+
+- Lecture notes, exported slides, and **Chrome “Save as PDF”** / Print to PDF
+- PDF must contain **selectable text** (scanned image-only PDFs will not work)
 
 **Requirements**
 
 - Ollama running with `mistral` (or your configured model)
-- PDF must contain **selectable text** (scanned image-only PDFs won't work)
+- Backend server running (see below)
 
 ---
 
@@ -124,7 +138,7 @@ Placeholder for shared study with others. Coming soon.
 
 ## Account setup
 
-Capingo needs a **Firebase** project for login. The chatbot uses **Ollama on your machine** (not a cloud AI API key).
+Capingo needs a **Firebase** project for login. The chatbot and flashcards use **Ollama on your machine** (not a cloud AI API key).
 
 ### Firebase (login)
 
@@ -133,17 +147,24 @@ Capingo needs a **Firebase** project for login. The chatbot uses **Ollama on you
 3. Register a **Web app** and copy the config keys
 4. In the `react/` folder, copy `.env.example` to `.env` and paste your Firebase keys
 
-### Backend (chatbot)
+### Backend (chatbot + flashcards)
 
-In the `backend/` folder, copy `.env.example` to `.env`. Defaults work for local Ollama (`mistral` on port `11434`).
+In the `backend/` folder, copy `.env.example` to `.env`:
 
----
+```env
+PORT=5000
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=mistral
+MAX_PDF_MB=10
+```
+
+Defaults work for local Ollama (`mistral` on port `11434`).
 
 ## Getting started (local)
 
 You’ll run three pieces: **Ollama**, the **backend**, and the **website**.
 
-### 1. Ollama (for Chatbot)
+### 1. Ollama (for Chatbot & Flashcards)
 
 Install Ollama, then in a terminal:
 
@@ -152,7 +173,7 @@ ollama pull mistral
 ollama list
 ```
 
-Keep the Ollama app running while you use the chatbot.
+Keep the Ollama app running while you use the chatbot or flashcards.
 
 ### 2. Backend
 
@@ -186,7 +207,7 @@ Open **http://localhost:5173/** in your browser.
 
 > Use **localhost**, not `127.0.0.1`, if the page doesn’t load.
 
-**Flow:** sign in → explore **Timetable** or **Chatbot**.
+**Flow:** sign in → explore **Timetable**, **Chatbot**, or **Flashcard**.
 
 ---
 
@@ -197,6 +218,9 @@ Open **http://localhost:5173/** in your browser.
 | Login fails or blank page | Check `react/.env` has correct Firebase settings |
 | Chatbot error | Ensure Ollama is running and `mistral` is in `ollama list` |
 | Chatbot slow on long threads | Normal on first summarize pass; later messages use cached summary + recent window |
+| Flashcard upload fails | Use a text-based PDF (not scanned images); max 10 MB |
+| Flashcard “no selectable text” | PDF is image-only — export from Word/Slides or use OCR first |
+| Flashcard generation slow | Normal for long notes — Ollama may take 30–90 seconds |
 | Timetable generate does nothing | Add tasks first; set days, study hours, and break times in the popup |
 | Logo missing | Hard-refresh: `Ctrl + Shift + R` |
 | Slow first AI reply | Normal — the model loads into memory the first time |
@@ -207,19 +231,19 @@ Open **http://localhost:5173/** in your browser.
 
 ```text
 Orb26-Capingo/
-├── backend/     API server (Ollama chat + summarize endpoints)
-├── react/       Website (login, timetable, chatbot, etc.)
+├── backend/     API server (Ollama chat, summarize, flashcard PDF + generate)
+├── react/       Website (login, timetable, chatbot, flashcards, etc.)
 └── README.md    You are here
 ```
 
-**Chatbot API (backend)**
+**Backend API**
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/chat` | Send recent messages + optional memory summary; get AI reply |
-| `POST` | `/api/summarize` | Compress older messages into a short memory note |
-| `POST` | `/api/flashcards/parse-pdf` | Upload PDF (`multipart` field `file`); returns extracted text |
-| `POST` | `/api/flashcards/generate` | Generate flashcards from text via Ollama |
+| `POST` | `/api/summarize` | Compress older chat messages into a short memory note |
+| `POST` | `/api/flashcards/parse-pdf` | Parse PDF — JSON `{ pdfBase64, fileName }` or multipart `file` |
+| `POST` | `/api/flashcards/generate` | Generate flashcards from extracted text via Ollama |
 | `GET` | `/api/health` | Check Ollama connectivity |
 
 ---
@@ -228,10 +252,11 @@ Orb26-Capingo/
 
 Ideas for future Capingo versions:
 
-- Flashcards and collaboration spaces
-- Syncing chats to the cloud per logged-in user (today: browser-only storage + client-side memory)
+- Collaboration spaces for shared study
+- Syncing chats and flashcard decks to the cloud per logged-in user (today: browser-only storage)
 - Dashboard with upcoming tasks and recent activity
 - Clearer feedback when timetable generation can’t fit all tasks
+- Spaced repetition for flashcard study
 
 ---
 

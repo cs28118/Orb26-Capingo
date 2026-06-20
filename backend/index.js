@@ -1,10 +1,13 @@
+require('node:dns/promises').setServers(['1.1.1.1', '8.8.8.8']);
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { PDFParse } = require('pdf-parse');
 require('dotenv').config();
 
+const connectDB = require('./config/db');
 const app = express();
+connectDB();
 const PORT = process.env.PORT || 5000;
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
@@ -287,6 +290,8 @@ async function respondWithParsedPdf(buffer, fileName, res) {
 
 app.use(cors());
 app.use(express.json({ limit: `${(Number(process.env.MAX_PDF_MB || 10) + 5)}mb` }));
+const profileRoutes = require('./routes/profile');
+app.use('/api/profile', profileRoutes);
 app.get('/', (req, res) => {
   res.send('Capingo is running');
 });

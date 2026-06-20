@@ -19,14 +19,18 @@ const isToday = (date) => {
 };
 
 
-router.get('/:username', async (req, res) => {
+router.get('/:uid', async (req, res) => {
   try {
-    const { username } = req.params;
-    let profile = await UserProfile.findOne({ username });
+    //fetch uid
+    const { uid } = req.params;
+    const { username, email } = req.query;
+    let profile = await UserProfile.findOne({ firebaseUid: uid });
     // create profile
     if (!profile) {
       profile = new UserProfile({
+        firebaseUid: uid,
         username: username,
+        email: email,
         profilePic: '/assets/profile-placeholder.png',
         achievements: [
           { id: 1, title: 'Welcome!', icon: '/assets/welcome-badge.png' }
@@ -74,8 +78,8 @@ router.get('/:username', async (req, res) => {
 
 router.post('/quest-action', async (req, res) => {
   try {
-    const { username, actionType } = req.body;
-    const profile = await UserProfile.findOne({ username });
+    const { uid, actionType } = req.body;
+    const profile = await UserProfile.findOne({ firebaseUid: uid });
     if (!profile) return res.status(404).json({ error: 'User not found' });
     let xpToAdd = 0;
     let actionName = '';

@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const UserProfileSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true }, //for current progress, use firebase id for future update
+  firebaseUid: { type: String, required: true, unique: true },
+  email: { type: String },
+  username: { type: String, default: 'Capy' },
   level: { type: Number, default: 1 },
   currentXp: { type: Number, default: 0 },
   xpToNextLevel: { type: Number, default: 100 },

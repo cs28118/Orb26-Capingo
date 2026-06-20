@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import BadgeIcon from '../components/BadgeIcon';
 import './Dashboard.css';
 
@@ -6,17 +7,33 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  //testing data (for current progress, all user will be capy for testing)
-  const testingUser = 'Capy';
-
-  //fetch data from mongodb
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  
+  //auth state
   useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setFirebaseUser(user);
+      } else {
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  //fetch user data
+  useEffect(() => {
+    if (!firebaseUser) return;
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/profile/${testingUser}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch user data');
-        }
+        const queryParams = new URLSearchParams({
+          username: firebaseUser.displayName || 'Student',
+          email: firebaseUser.email || '',
+          photoURL: firebaseUser.photoURL || ''
+        });
+        const response = await fetch(`http://localhost:5000/api/profile/${firebaseUser.uid}?${queryParams.toString()}`);
+        if (!response.ok) throw new Error('Failed to fetch user data');
         const data = await response.json();
         setUserData(data);
       } catch (err: any) {
@@ -26,29 +43,23 @@ export default function Dashboard() {
       }
     };
     fetchUserData();
-  }, [testingUser]);
-
-  if (isLoading) return <div className="dashboard-container"><h1 className="welcome-message">Loading your study stats...</h1></div>;
-  if (error) return <div className="dashboard-container"><h1 className="welcome-message">Error: {error}</h1></div>;
-  if (!userData) return null;
-
-  const progressPercentage = Math.min(100, Math.max(0, (userData.currentXp / userData.xpToNextLevel) * 100));
+  }, [firebaseUser]);
 
   //quest action handle
-  const handleQuestAction = async (actionType: string) => {
+const handleQuestAction = async (actionType: string) => {
+    if (!firebaseUser) return;
     try {
       const response = await fetch('http://localhost:5000/api/profile/quest-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: testingUser,
+          uid: firebaseUser.uid,
           actionType: actionType
         })
       });
       if (!response.ok) throw new Error('Failed to record quest action');
       const data = await response.json();
       setUserData(data.profile);
-      //alert when xp added
       if (data.leveledUp) {
         alert(`LEVEL UP! You are now Level ${data.profile.level}!\n${data.message}`);
       } else {
@@ -58,6 +69,12 @@ export default function Dashboard() {
       console.error("Error processing quest:", err);
     }
   };
+
+  if (isLoading) return <div className="dashboard-container"><h1 className="welcome-message">Loading your study stats...</h1></div>;
+  if (error) return <div className="dashboard-container"><h1 className="welcome-message">Error: {error}</h1></div>;
+  if (!userData) return null;
+
+  const progressPercentage = Math.min(100, Math.max(0, (userData.currentXp / userData.xpToNextLevel) * 100));
 
   return (
     <div className="dashboard-container">

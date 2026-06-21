@@ -1,13 +1,26 @@
 import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { Link } from 'react-router-dom';
+import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './Dashboard.css';
+
+const presetProfilePic = [
+  '/assets/profile-placeholder.png',
+  '/assets/profile1.png',
+  '/assets/profile2.png',
+  '/assets/profile3.png'
+];
 
 export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [selectedProfilePic, setSelectedProfilePic] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   
   //auth state
   useEffect(() => {
@@ -70,6 +83,31 @@ const handleQuestAction = async (actionType: string) => {
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!firebaseUser) return;
+    setIsUploading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: firebaseUser.uid,
+          newUsername: editUsername || userData.username,
+          newProfilePic: selectedProfilePic || userData.profilePic
+        })
+      });
+      if (!response.ok) throw new Error('Failed to update profile');
+      const data = await response.json();
+      setUserData(data.profile);
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      alert("Failed to update profile. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (isLoading) return <div className="dashboard-container"><h1 className="welcome-message">Loading your study stats...</h1></div>;
   if (error) return <div className="dashboard-container"><h1 className="welcome-message">Error: {error}</h1></div>;
   if (!userData) return null;
@@ -90,6 +128,13 @@ const handleQuestAction = async (actionType: string) => {
           <div className="profile-header">
             <span className="level-badge">Lvl {userData.level}</span>
             <h2 className="username">{userData.username}</h2>
+            <button className="edit-profile-btn" onClick={() => {
+                  setEditUsername(userData.username);
+                  setSelectedProfilePic(userData.profilePic);
+                  setIsEditing(true);
+                }}>
+                ✏️
+              </button>
           </div>
           
           <div className="progress-bar-container">
@@ -106,8 +151,18 @@ const handleQuestAction = async (actionType: string) => {
 
       {/* achievements */}
       <div className="achievements-section">
-        <h3 className="section-title">Achievements</h3>
-        <BadgeIcon badges={userData.achievements} showViewAll={true}/>
+        <div className="badges-row"> 
+          {[1, 2, 3, 4, 5].map((slotId) => {
+            const badgeInfo = allAchievements.find(a => a.id === slotId);
+            const isUnlocked = userData.achievements?.some((a: any) => a.id === slotId);
+            return (
+              <BadgeIcon key={slotId} icon={badgeInfo?.icon} lockedIcon={badgeInfo?.lockedIcon} title={badgeInfo?.title} isUnlocked={isUnlocked}/>
+            );
+          })}
+        </div>
+        <Link to="/home/achievements" className="view-all-link">
+          View all badges &rarr;
+        </Link>
       </div>
 
       {/* quest list */}
@@ -160,6 +215,46 @@ const handleQuestAction = async (actionType: string) => {
         </ul>
       </div>
 
+      {/* edit form */}
+      {isEditing && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Edit Profile</h3>
+            <div className="form-group">
+              <label>Username</label>
+              <input type="text" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} maxLength={20}/>
+            </div>
+            <div className="form-group">
+              <label>Choose Profile Picture</label>
+              {/* google profile picture */}
+              {firebaseUser?.photoURL && (
+                <button className={`google-photo-btn ${selectedProfilePic === firebaseUser.photoURL ? 'selected' : ''}`} onClick={() => setSelectedProfilePic(firebaseUser.photoURL)}>
+                  <img src={firebaseUser.photoURL} alt="Google Auth" className="pfp-thumbnail" />
+                  Use My Google Photo
+                </button>
+              )}
+
+              {/* preset profile pictures */}
+              <div className="pfp-grid">
+                {presetProfilePic.map((pfpUrl, index) => (
+                  <img key={index} src={pfpUrl} alt={`Profile picture option ${index + 1}`} 
+                       className={`pfp-thumbnail ${selectedProfilePic === pfpUrl ? 'selected' : ''}`} onClick={() => setSelectedProfilePic(pfpUrl)}/>
+                ))}
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              {isUploading && <span className="upload-status">Saving...</span>}
+              <button className="cancel-btn" onClick={() => setIsEditing(false)} disabled={isUploading}>
+                Cancel
+              </button>
+              <button className="save-btn" onClick={handleSaveProfile} disabled={isUploading}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

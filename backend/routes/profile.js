@@ -18,7 +18,7 @@ const isToday = (date) => {
          date.getFullYear() === today.getFullYear();
 };
 
-
+//get id
 router.get('/:uid', async (req, res) => {
   try {
     //fetch uid
@@ -75,7 +75,7 @@ router.get('/:uid', async (req, res) => {
   }
 });
 
-
+//do quest
 router.post('/quest-action', async (req, res) => {
   try {
     const { uid, actionType } = req.body;
@@ -133,6 +133,22 @@ router.post('/quest-action', async (req, res) => {
   } catch (err) {
     console.error('Error processing quest action:', err);
     res.status(500).json({ error: 'Server error processing quest' });
+  }
+});
+
+//update profile
+router.post('/update', async (req, res) => {
+  try {
+    const { uid, newUsername, newProfilePic } = req.body;
+    const profile = await UserProfile.findOne({ firebaseUid: uid });
+    if (!profile) return res.status(404).json({ error: 'User not found' });
+    if (newUsername) profile.username = newUsername;
+    if (newProfilePic) profile.profilePic = newProfilePic;
+    await profile.save();
+    res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ error: 'Server error updating profile' });
   }
 });
 

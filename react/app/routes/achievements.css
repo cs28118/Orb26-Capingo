@@ -1,0 +1,48 @@
+.achievements-page-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  font-family: inherit;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 12px 4px;
+}
+
+.full-achievements-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 48px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.full-badges-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 40px 16px;
+  justify-items: center;
+}
+
+/* special adjustment for small screens */
+@media (max-width: 900px) {
+  .full-badges-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .full-achievements-panel {
+    padding: 24px;
+  }
+  
+  .full-badges-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px 12px;
+  }
+}

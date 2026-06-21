@@ -1,31 +1,19 @@
 import './BadgeIcon.css';
 
-export interface Badge {
-  id: number | string;
-  title: string;
-  icon: string;
-}
-
 interface BadgeIconProps {
-  badges: Badge[];
-  showViewAll?: boolean;
+  icon?: string;
+  lockedIcon?: string;
+  title?: string;
+  isUnlocked: boolean;
 }
 
-export default function BadgeIcon({ badges, showViewAll = true }: BadgeIconProps) {
+export default function BadgeIcon({ icon, lockedIcon, title, isUnlocked }: BadgeIconProps) {
   return (
-    <div className="badges-container">
-      <div className="badges-grid">
-        {badges.map((badge) => (
-          <div key={badge.id} className="badge-item">
-            <div className="badge-icon"><img src={badge.icon} alt={badge.title} /></div>
-            <span className="badge-title">{badge.title}</span>
-          </div>
-        ))}
+    <div className="badge-item">
+      <div className={`badge-icon ${isUnlocked ? 'unlocked' : 'locked'}`}>
+        <img src={isUnlocked ? icon : lockedIcon} alt={title || "Badge"} />
       </div>
-      
-      {showViewAll && (
-        <button className="view-all-link">View all badges →</button>
-      )}
+      <span className="badge-title">{title}</span>
     </div>
   );
 }

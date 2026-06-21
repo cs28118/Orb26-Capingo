@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './Dashboard.css';
+import { triggerToast } from '../components/Noti';
 
 const presetProfilePic = [
   '/assets/profile-placeholder.png',
@@ -73,10 +74,14 @@ const handleQuestAction = async (actionType: string) => {
       if (!response.ok) throw new Error('Failed to record quest action');
       const data = await response.json();
       setUserData(data.profile);
+      if (data.message && data.message.includes('XP')) {
+        triggerToast('quest', 'QUEST', data.message);
+      } 
+      else if (data.message && data.message.includes('cap')) {
+        triggerToast('quest', 'QUEST', 'Login streak already claimed today!');
+      }
       if (data.leveledUp) {
-        alert(`LEVEL UP! You are now Level ${data.profile.level}!\n${data.message}`);
-      } else {
-        alert(data.message);
+        triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
       }
     } catch (err) {
       console.error("Error processing quest:", err);
@@ -168,49 +173,48 @@ const handleQuestAction = async (actionType: string) => {
       {/* quest list */}
       <div className="quests-section">
         <h3 className="section-title">Quest List</h3>
-        <ul className="quest-list">
+          <ul className="quest-list">
 
-          {/* login streak quest */}
+          {/* login streak xp claim */}
           <li className="quest-item">
             <span className="quest-bullet">🔥</span>
-            <span className="quest-action">Login Streak ({userData.streakDays} Days)</span>
-            <span className="quest-reward">Up to 50 XP/Day</span>
+            <span className="quest-action">Login Streak ({userData.streakDays || 1} Days)</span>
+            {userData.dailyProgress?.streakClaimed >= 1 ? (
+              <span className="quest-reward" style={{ background: '#d1fae5', color: '#065f46' }}>
+                ✓ Claimed
+              </span>
+            ) : (
+              <button className="save-btn" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => handleQuestAction('loginStreak')}>
+                Claim {Math.min((userData.streakDays || 1) * 20, 100)} XP
+              </button>
+            )}
           </li>
 
           {/* quest 1 */}
-          <li 
-            className="quest-item clickable-quest"
-            onClick={() => handleQuestAction('reviewDeck')}
-          >
+          <li className="quest-item">
             <span className="quest-bullet">•</span>
             <span className="quest-action">
               Review a Flashcard Deck ({userData.dailyProgress?.decksReviewed || 0}/2)
             </span>
-            <span className="quest-reward">+ 60 XP</span>
+            <span className="quest-reward">60 XP</span>
           </li>
 
           {/* quest 2 */}
-          <li 
-            className="quest-item clickable-quest"
-            onClick={() => handleQuestAction('chatMessage')}
-          >
+          <li className="quest-item">
             <span className="quest-bullet">•</span>
             <span className="quest-action">
               Chat with Capingo ({userData.dailyProgress?.chatMessages || 0}/5)
             </span>
-            <span className="quest-reward">+ 50 XP</span>
+            <span className="quest-reward">50 XP</span>
           </li>
 
           {/* quest 3 */}
-          <li 
-            className="quest-item clickable-quest"
-            onClick={() => handleQuestAction('createDeck')}
-          >
+          <li className="quest-item">
             <span className="quest-bullet">•</span>
             <span className="quest-action">
               Create a new Flashcard Deck ({userData.dailyProgress?.decksCreated || 0}/1)
             </span>
-            <span className="quest-reward">+ 30 XP</span>
+            <span className="quest-reward">30 XP</span>
           </li>
         </ul>
       </div>

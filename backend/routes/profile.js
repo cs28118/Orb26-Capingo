@@ -54,17 +54,11 @@ router.get('/:uid', async (req, res) => {
         profile.streakDays = 1;
       }
       profile.dailyProgress = {
+        streakClaimed: 0,
         decksReviewed: 0,
         chatMessages: 0,
         decksCreated: 0
       };
-      const streakXp = Math.min(profile.streakDays * 10, 50);
-      profile.currentXp += streakXp;
-      while (profile.currentXp >= profile.xpToNextLevel) {
-        profile.currentXp -= profile.xpToNextLevel;
-        profile.level += 1;
-        profile.xpToNextLevel = Math.floor(profile.level * 150);
-      }
       profile.lastLoginDate = new Date();
       await profile.save();
     }
@@ -75,35 +69,33 @@ router.get('/:uid', async (req, res) => {
   }
 });
 
+const QUEST_DICT = {
+  loginStreak: { xp: 50, limit: 1, key: 'streakClaimed', name: 'Daily Login Streak Claimed' },
+  reviewDeck:  { xp: 60, limit: 2, key: 'decksReviewed', name: 'Flashcard Deck Reviewed' },
+  chatMessage: { xp: 50, limit: 5, key: 'chatMessages', name: 'Chat Message Sent' },
+  createDeck:  { xp: 30, limit: 1, key: 'decksCreated', name: 'Flashcard Deck Created' }
+};
+
 //do quest
 router.post('/quest-action', async (req, res) => {
   try {
     const { uid, actionType } = req.body;
     const profile = await UserProfile.findOne({ firebaseUid: uid });
     if (!profile) return res.status(404).json({ error: 'User not found' });
-    let xpToAdd = 0;
-    let actionName = '';
     //quests
-    if (actionType === 'reviewDeck') {
-      if (profile.dailyProgress.decksReviewed < 2) {
-        profile.dailyProgress.decksReviewed += 1;
-        xpToAdd = 60;
-        actionName = 'Flashcard Deck Reviewed';
+    const quest = QUEST_DICT[actionType];
+    if (!quest) return res.status(400).json({ error: 'Invalid action' });
+    let xpToAdd = 0;
+    let actionName = quest.name;
+    if (profile.dailyProgress[quest.key] < quest.limit) {
+      profile.dailyProgress[quest.key] += 1;
+      if (actionType === 'loginStreak') {
+        const currentStreak = profile.streakDays || 1;
+        xpToAdd = Math.min(currentStreak * 20, 100); 
+        actionName = `Day ${currentStreak} Login Streak`;
+      } else {
+        xpToAdd = quest.xp;
       }
-    } else if (actionType === 'chatMessage') {
-      if (profile.dailyProgress.chatMessages < 5) {
-        profile.dailyProgress.chatMessages += 1;
-        xpToAdd = 50;
-        actionName = 'Chat Message Sent';
-      }
-    } else if (actionType === 'createDeck') {
-      if (profile.dailyProgress.decksCreated < 1) {
-        profile.dailyProgress.decksCreated += 1;
-        xpToAdd = 30;
-        actionName = 'Flashcard Deck Created';
-      }
-    } else {
-      return res.status(400).json({ error: 'Invalid action type' });
     }
     //capped
     if (xpToAdd === 0) {
@@ -127,7 +119,7 @@ router.post('/quest-action', async (req, res) => {
     res.json({
       success: true,
       leveledUp,
-      message: `+${xpToAdd} XP for: ${actionName}`,
+      message: `+${xpToAdd} XP for: ${quest.name}`,
       profile
     });
   } catch (err) {

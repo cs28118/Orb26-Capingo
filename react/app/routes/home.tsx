@@ -4,6 +4,7 @@ import type { User } from 'firebase/auth';
 import { auth } from '../firebaseAuth/firebase';
 import { Outlet, NavLink, Navigate, useLocation } from 'react-router';
 import './home.css';
+import ToastContainer from '../components/Noti';
 
 export default function Home() {
     const [user, setUser] = useState<User | null>(null);
@@ -85,6 +86,8 @@ export default function Home() {
                     <Outlet />
                 </div>
             </main>
+
+            <ToastContainer />
         </div>
     );
 }

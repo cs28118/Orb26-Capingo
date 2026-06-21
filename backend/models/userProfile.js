@@ -11,6 +11,7 @@ const UserProfileSchema = new mongoose.Schema({
   lastLoginDate: { type: Date, default: Date.now },
   streakDays: { type: Number, default: 1 },
   dailyProgress: {
+    streakClaimed: { type: Number, default: 0 },
     decksReviewed: { type: Number, default: 0 },
     chatMessages: { type: Number, default: 0 },
     decksCreated: { type: Number, default: 0 }

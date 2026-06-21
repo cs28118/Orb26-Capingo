@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './flashcard.css';
+import { triggerToast } from '../components/Noti';
 
 const STORAGE_KEY = 'capingo-flashcard-decks';
 
@@ -122,6 +124,42 @@ export default function Flashcards() {
   const [studyIndex, setStudyIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
+
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) setFirebaseUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+//function to give xp
+const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createDeck') => {
+    try {
+      const response = await fetch('http://localhost:5000/api/profile/quest-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: uid,
+          actionType: actionType
+        })
+      });
+      const data = await response.json();
+      if (data.message && data.message.includes('XP')) {
+        triggerToast('quest', 'QUEST', data.message);
+      } else if (data.message && data.message.includes('cap')) {
+        const capMessage = actionType === 'reviewDeck' ? 'Flashcard review quest capped!' : 'Deck creation quest capped!';
+        triggerToast('quest', 'QUEST', capMessage);
+      }
+      if (data.leveledUp) {
+        triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
+      }
+    } catch (err) {
+      console.error("Failed to award XP", err);
+    }
+  };
 
   useEffect(() => {
     const stored = loadDecks();
@@ -280,6 +318,9 @@ export default function Flashcards() {
       setActiveDeckId(deck.id);
       setMode('edit');
       setParsedPdf(null);
+      if (firebaseUser) {
+        awardFlashcardXP(firebaseUser.uid, 'createDeck');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate flashcards');
     } finally {
@@ -318,6 +359,13 @@ export default function Flashcards() {
 
   const handleRenameDeck = (deckId: string, title: string) => {
     updateDeck(deckId, (d) => ({ ...d, title: title.trim() || d.title, updatedAt: Date.now() }));
+  };
+
+  const handleFinishStudy = () => {
+    if (firebaseUser) {
+      awardFlashcardXP(firebaseUser.uid,'reviewDeck');
+    }
+    setMode('library'); // Takes them back to the deck screen
   };
 
   const startStudy = () => {
@@ -480,14 +528,20 @@ export default function Flashcards() {
             <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setFlipped((f) => !f)}>
               Flip
             </button>
-            <button
-              type="button"
-              className="flashcard-btn flashcard-btn-secondary"
-              onClick={goStudyNext}
-              disabled={studyIndex >= studyCards.length - 1}
-            >
-              Next
-            </button>
+            {studyIndex >= studyCards.length - 1 ? (
+              <button 
+                type="button" 
+                className="flashcard-btn flashcard-btn-primary" 
+                onClick={handleFinishStudy}
+                style={{ background: '#f6d96a', color: '#3d2914', border: 'none', fontWeight: 'bold' }}
+              >
+                Finish (Claim daily XP)
+              </button>
+            ) : (
+              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={goStudyNext}>
+                Next
+              </button>
+            )}
             <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={shuffleStudy}>
               Shuffle
             </button>

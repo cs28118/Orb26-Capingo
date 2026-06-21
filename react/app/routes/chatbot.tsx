@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
+import { triggerToast } from '../components/Noti';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 const STORAGE_KEY = 'capingo-chats';
 const RESET_MARKER = 'capingo-memory-reset-v2';
@@ -175,6 +177,29 @@ function getApiBase(): string {
   return '';
 }
 
+//function to give xp
+const awardChatbotXP = async (uid: string) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/profile/quest-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: uid,
+          actionType: 'chatMessage' 
+        })
+      });
+      const data = await response.json();
+      if (data.message && data.message.includes('XP')) {
+        triggerToast('quest', 'QUEST', data.message);
+      }
+      if (data.leveledUp) {
+        triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
+      }
+    } catch (err) {
+      console.error("Failed to award Chat XP", err);
+    }
+};
+
 export default function Chatbot() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -182,6 +207,17 @@ export default function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setFirebaseUser(user);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!localStorage.getItem(RESET_MARKER)) {
@@ -239,6 +275,10 @@ export default function Chatbot() {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
 
+    if (firebaseUser) {
+      awardChatbotXP(firebaseUser.uid);
+    }
+    
     setError(null);
 
     let chatId = activeChatId;

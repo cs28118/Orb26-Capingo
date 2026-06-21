@@ -112,9 +112,37 @@
 
 /* achievements */
 .achievements-section {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 32px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 40px;
 }
 
+.badges-row {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1; 
+  justify-content: space-between; 
+}
+
+.view-all-link {
+  color: #4b5563;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+  white-space: nowrap; 
+  flex-shrink: 0; 
+}
+
+.view-all-link:hover {
+  color: #1f2937;
+}
 
 /* quest list */
 .quests-section {
@@ -174,6 +202,155 @@
   background-color: #f9fafb;
 }
 
+/* Edit form */
+.edit-profile-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  padding: 4px;
+}
+.edit-profile-btn:hover {
+  opacity: 1;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+/* edit form */
+.form-group {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.form-group input[type="text"] {
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.pfp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.pfp-thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform 0.2s, border-color 0.2s;
+  background: #f3f4f6;
+}
+
+.pfp-thumbnail:hover {
+  transform: scale(1.1);
+}
+
+.pfp-thumbnail.selected {
+  border-color: #f6d96a; /* Capingo Yellow */
+  box-shadow: 0 0 10px rgba(246, 217, 106, 0.5);
+  transform: scale(1.1);
+}
+
+.google-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 12px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.google-photo-btn:hover {
+  background: #f3f4f6;
+}
+
+.google-photo-btn.selected {
+  border-color: #f6d96a;
+  background: #fffbeb;
+}
+
+.google-photo-btn .pfp-thumbnail {
+  width: 40px;
+  height: 40px;
+  border: none;
+}
+
+/* modal */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  align-items: center;
+}
+
+.cancel-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.save-btn {
+  background: #f6d96a;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-status {
+  font-size: 0.85rem;
+  color: #10b981;
+  font-weight: 600;
+}
+
 /* special adjustment for small screen */
 @media (max-width: 768px) {
   .profile-card {
@@ -186,14 +363,20 @@
     justify-content: center;
   }
 
-  .achievements-container {
+  .achievements-section {
     flex-direction: column;
     align-items: stretch;
+    gap: 24px;
+    padding: 20px;
+  }
+  
+  .badges-row {
+    flex-wrap: wrap;
+    justify-content: space-evenly;
     gap: 16px;
   }
-
+  
   .view-all-link {
-    padding-left: 0;
-    text-align: left;
+    text-align: center;
   }
 }

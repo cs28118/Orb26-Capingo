@@ -63,7 +63,7 @@ export default function Login() {
             navigate("/home");
         } catch (err: any) {
             if (err.code !== 'auth/popup-closed-by-user') {
-                setError('Failed to sign in with Google. Please try again.');
+                setError('Failed to log in. Please try again.');
             }
         } finally {
             setLoading(false);
@@ -71,11 +71,10 @@ export default function Login() {
     };
 
     useEffect(() => {
-        // Listen to see if a user session already exists
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
-                console.log("User already logged in! Redirecting to workspace...");
-                navigate("/home", { replace: true }); // Automatically bypasses the login screen
+                console.log("Logged in! Redirecting...");
+                navigate("/home", { replace: true });
             }
         });
         return () => unsubscribe();

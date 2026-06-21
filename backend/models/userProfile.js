@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const UserProfileSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true }, //for current progress, use firebase id for future update
+  firebaseUid: { type: String, required: true, unique: true },
+  email: { type: String },
+  username: { type: String, default: 'Capy' },
   level: { type: Number, default: 1 },
   currentXp: { type: Number, default: 0 },
   xpToNextLevel: { type: Number, default: 100 },
@@ -9,6 +11,7 @@ const UserProfileSchema = new mongoose.Schema({
   lastLoginDate: { type: Date, default: Date.now },
   streakDays: { type: Number, default: 1 },
   dailyProgress: {
+    streakClaimed: { type: Number, default: 0 },
     decksReviewed: { type: Number, default: 0 },
     chatMessages: { type: Number, default: 0 },
     decksCreated: { type: Number, default: 0 }

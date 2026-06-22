@@ -5,10 +5,10 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "indexGemini.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node indexGemini.js",
+    "dev": "nodemon indexGemini.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

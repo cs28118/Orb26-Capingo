@@ -1,3 +1,4 @@
+# node modules, env, vite, react-router files
 node_modules/
 .env
 .env.local

@@ -138,7 +138,7 @@ export default function Flashcards() {
 //function to give xp
 const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createDeck') => {
     try {
-      const response = await fetch('http://localhost:5000/api/profile/quest-action', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/quest-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

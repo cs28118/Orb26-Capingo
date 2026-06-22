@@ -46,7 +46,7 @@ export default function Dashboard() {
           email: firebaseUser.email || '',
           photoURL: firebaseUser.photoURL || ''
         });
-        const response = await fetch(`http://localhost:5000/api/profile/${firebaseUser.uid}?${queryParams.toString()}`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/${firebaseUser.uid}?${queryParams.toString()}`);
         if (!response.ok) throw new Error('Failed to fetch user data');
         const data = await response.json();
         setUserData(data);
@@ -63,7 +63,7 @@ export default function Dashboard() {
 const handleQuestAction = async (actionType: string) => {
     if (!firebaseUser) return;
     try {
-      const response = await fetch('http://localhost:5000/api/profile/quest-action', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/quest-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,7 +92,7 @@ const handleQuestAction = async (actionType: string) => {
     if (!firebaseUser) return;
     setIsUploading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/profile/update', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

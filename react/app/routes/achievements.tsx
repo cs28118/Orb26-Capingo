@@ -13,7 +13,7 @@ export default function Achievements() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const response = await fetch(`http://localhost:5000/api/profile/${user.uid}`);
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/${user.uid}`);
           if (response.ok) {
             const data = await response.json();
             const ids = data.achievements?.map((a: any) => a.id) || [];

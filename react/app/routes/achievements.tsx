@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
-import './Achievements.css';
+import './achievements.css';
 
 export default function Achievements() {
   const [unlockedIds, setUnlockedIds] = useState<number[]>([]);

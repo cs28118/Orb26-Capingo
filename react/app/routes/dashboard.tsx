@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
-import './Dashboard.css';
+import './dashboard.css';
 import { triggerToast } from '../components/Noti';
 
 const presetProfilePic = [

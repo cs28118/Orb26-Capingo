@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './flashcard.css';
 import { triggerToast } from '../components/Noti';
+import type { User } from 'firebase/auth';
 
 const STORAGE_KEY = 'capingo-flashcard-decks';
 
@@ -110,8 +111,21 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 export default function Flashcards() {
-  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
-  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [decks, setDecks] = useState<FlashcardDeck[]>(() => {
+  const stored = loadDecks();
+  
+  if (stored.length > 0) {
+    return [...stored].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
+  }
+  return stored;
+  });
+  const [activeDeckId, setActiveDeckId] = useState<string | null>(
+  decks.length > 0 ? decks[0].id : null
+  );
   const [mode, setMode] = useState<ViewMode>('library');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -125,7 +139,7 @@ export default function Flashcards() {
   const [flipped, setFlipped] = useState(false);
   const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
 
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -160,19 +174,6 @@ const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createD
       console.error("Failed to award XP", err);
     }
   };
-
-  useEffect(() => {
-    const stored = loadDecks();
-    setDecks(stored);
-    if (stored.length > 0) {
-      const sorted = [...stored].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return b.updatedAt - a.updatedAt;
-      });
-      setActiveDeckId(sorted[0].id);
-    }
-  }, []);
 
   useEffect(() => {
     if (decks.length > 0) saveDecks(decks);

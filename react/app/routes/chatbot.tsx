@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
 import { triggerToast } from '../components/Noti';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 const STORAGE_KEY = 'capingo-chats';
 const RESET_MARKER = 'capingo-memory-reset-v2';
@@ -201,14 +202,31 @@ const awardChatbotXP = async (uid: string) => {
 };
 
 export default function Chatbot() {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chats, setChats] = useState<Chat[]>(() => {
+  if (!localStorage.getItem(RESET_MARKER)) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(RESET_MARKER, '1');
+    return [];
+  }
+  const stored = loadChats();
+  if (stored.length > 0) {
+    return [...stored].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
+  }
+  return stored; 
+  });
+  const [activeChatId, setActiveChatId] = useState<string | null>(
+    chats.length > 0 ? chats[0].id : null
+  );
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
-
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -217,26 +235,6 @@ export default function Chatbot() {
       }
     });
     return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!localStorage.getItem(RESET_MARKER)) {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.setItem(RESET_MARKER, '1');
-      setChats([]);
-      setActiveChatId(null);
-      return;
-    }
-    const stored = loadChats();
-    setChats(stored);
-    if (stored.length > 0) {
-      const sorted = [...stored].sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return b.updatedAt - a.updatedAt;
-      });
-      setActiveChatId(sorted[0].id);
-    }
   }, []);
 
   useEffect(() => {

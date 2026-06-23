@@ -30,7 +30,27 @@ You need a Firebase project set up for login to work locally (see **Getting star
 
 ### Dashboard
 
-Your home screen after login. Right now it’s a simple landing page — a starting point for future widgets like upcoming tasks or recent chats.
+Your home screen after login. A simple landing page with useful **user information**.
+
+**Profile card**
+
+1. Shows your profile picture, username, level and current XP progress
+2. Edit profile card feature:
+   - Profile picture: you can change your profile picture into either our preset profile picture, or your gmail profile picture (only available if you login with gmail)
+   - Username: you can change your username, this will be saved and used for other features
+3. You can clearly see your progress through the level beside your username and the XP bar
+
+**Achivement**
+
+1. Shows 5 unlocked and locked achievement that are currently implemented.
+2. Show all achievement: direct you to a new page with all achievement nicely arranged in it.
+
+**Quest list**
+
+1. Shows all available quest currently
+2. Claim your daily login XP here, the longer the streak, the high the XP you can get (20XP/streak, capped at 100XP)
+3. Clearly stated current quest progress and limit
+4. Try out this feature by completing the quest listed
 
 ---
 
@@ -63,7 +83,10 @@ You can click **Details** on a block to edit or delete it.
 
 ### Chatbot (Capingo AI)
 
-Your **AI study co-pilot**, powered by a language model on your computer via **Ollama** (default model: **mistral**).
+Your **AI study co-pilot**,
+Local deployment (Ollama): powered by a language model on your computer via **Ollama** (default model: **mistral**).
+Local deployment (Gemini): powered by a language model online via **Gemini API Key** (default model: **gemini 2.5 flash**).
+Web deployment: powered by a language model online via **Gemini API Key** (model: **gemini 2.5 flash**).
 
 **Layout**
 
@@ -82,15 +105,25 @@ Your **AI study co-pilot**, powered by a language model on your computer via **O
 
 **Requirements**
 
-- [Ollama](https://ollama.com) installed and running
-- `mistral` (or your chosen model) pulled locally
-- Backend server running (see below)
+1. Local deployment (Ollama)
+   - [Ollama](https://ollama.com) installed and running
+   - `mistral` (or your chosen model) pulled locally
+   - Backend server running (see below)
+2. Local deployment (Gemini)
+   - [Google AI Studio](https://aistudio.google.com)
+   - Gemini API key generated
+   - Backend server running (see below)
+2. Web deployment
+   - None
 
 ---
 
 ### Flashcards
 
-Turn your **PDF notes** into study decks using Ollama (same local setup as the chatbot).
+Turn your **PDF notes** into study decks
+Local deployment (Ollama): used Ollama (same local setup as the chatbot).
+Local deployment (Gemini): used Gemini (same local setup as the chatbot).
+Web deployment: used Gemini
 
 **Layout**
 
@@ -117,8 +150,15 @@ Turn your **PDF notes** into study decks using Ollama (same local setup as the c
 
 **Requirements**
 
-- Ollama running with `mistral` (or your configured model)
-- Backend server running (see below)
+1. Local deployment
+   - Ollama running with `mistral` (or your configured model)
+   - Backend server running (see below)
+2. Local deployment (Gemini)
+   - [Google AI Studio](https://aistudio.google.com)
+   - Gemini API key generated
+   - Backend server running (see below)
+2. Web deployment
+   - None
 
 ---
 
@@ -136,9 +176,11 @@ Placeholder for shared study with others. Coming soon.
 
 ---
 
+# The setup instruction below is for local deployment
+
 ## Account setup
 
-Capingo needs a **Firebase** project for login. The chatbot and flashcards use **Ollama on your machine** (not a cloud AI API key).
+Capingo needs a **Firebase** project for login. The chatbot and flashcards use **Ollama on your machine** or **a Gemini AI API key**.
 
 ### Firebase (login)
 
@@ -152,19 +194,28 @@ Capingo needs a **Firebase** project for login. The chatbot and flashcards use *
 In the `backend/` folder, copy `.env.example` to `.env`:
 
 ```env
+# Local deployment (Ollama)
 PORT=5000
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=mistral
 MAX_PDF_MB=10
+MONGODB_URL=mongodb+srv://...
+
+# Local deployment (Gemini)
+PORT=5000
+GEMINI_API_KEY=your_api_key
+GEMINI_MODEL=gemini-2.5-flash
+MAX_PDF_MB=10
+MONGODB_URL=mongodb+srv://...
 ```
 
-Defaults work for local Ollama (`mistral` on port `11434`).
+Defaults work for local Ollama (`mistral` on port `11434`) or Gemini (Gemini 2.5 flash).
 
 ## Getting started (local)
 
-You’ll run three pieces: **Ollama**, the **backend**, and the **website**.
+You’ll run three pieces: **Ollama(for Ollama local deployment)**, the **backend**, and the **website**.
 
-### 1. Ollama (for Chatbot & Flashcards)
+### 1. Ollama (for local deployment of chatbot & flashcards)
 
 Install Ollama, then in a terminal:
 
@@ -182,7 +233,7 @@ cd backend
 npm install
 ```
 
-Copy `backend/.env.example` to `backend/.env` (defaults are fine for local Ollama).
+Copy `backend/.env.example` to `backend/.env` (change necessary infomation).
 
 ```powershell
 npm run dev

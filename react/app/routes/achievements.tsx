@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './achievements.css';
+import type { achievement } from '../types/types';
 
 export default function Achievements() {
   const [unlockedIds, setUnlockedIds] = useState<number[]>([]);
@@ -16,7 +17,7 @@ export default function Achievements() {
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/${user.uid}`);
           if (response.ok) {
             const data = await response.json();
-            const ids = data.achievements?.map((a: any) => a.id) || [];
+            const ids = data.achievements?.map((a: achievement) => a.id) || [];
             setUnlockedIds(ids);
           }
         } catch (err) {

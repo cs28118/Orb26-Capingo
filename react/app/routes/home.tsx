@@ -5,9 +5,11 @@ import { auth } from '../firebaseAuth/firebase';
 import { Outlet, NavLink, Navigate, useLocation } from 'react-router';
 import './home.css';
 import ToastContainer from '../components/Noti';
+import type { userData } from '../types/types';
 
 export default function Home() {
-    const [user, setUser] = useState<User | null>(null);
+    const [userData, setUserData] = useState<userData | null>(null);
+    const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const location = useLocation();
     const isChatbot = location.pathname.includes('/chatbot');
@@ -16,11 +18,31 @@ export default function Home() {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
+            setFirebaseUser(currentUser);
             setLoading(false);
         });
         return () => unsubscribe();
     }, []);
+
+      useEffect(() => {
+    if (!firebaseUser) return;
+    const fetchUserData = async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          username: firebaseUser.displayName || 'Student',
+          email: firebaseUser.email || '',
+          photoURL: firebaseUser.photoURL || ''
+        });
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/${firebaseUser.uid}?${queryParams.toString()}`);
+        if (!response.ok) throw new Error('Failed to fetch user data');
+        const data = await response.json();
+        setUserData(data);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, [firebaseUser]);
 
     const handleLogout = async () => {
         try {
@@ -39,7 +61,7 @@ export default function Home() {
         );
     }
 
-    if (!user) {
+    if (!firebaseUser) {
         return <Navigate to="/" replace />;
     }
 
@@ -74,7 +96,7 @@ export default function Home() {
                 </nav>
 
                 <div className="user-profile-logout">
-                    <span className="user-welcome">Hi, {user?.displayName || 'Capy'}!</span>
+                    <span className="user-welcome">Hi, {userData?.username || firebaseUser?.displayName}!</span>
                     <button type="button" className="btn-logout" onClick={handleLogout}> 
                         Log Out
                     </button>

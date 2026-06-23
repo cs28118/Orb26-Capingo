@@ -5,6 +5,9 @@ import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './dashboard.css';
 import { triggerToast } from '../components/Noti';
+import type { userData } from '../types/types';
+import type { User } from 'firebase/auth';
+import type { achievement } from '../types/types';
 
 const presetProfilePic = [
   '/assets/profile-placeholder.png',
@@ -14,10 +17,10 @@ const presetProfilePic = [
 ];
 
 export default function Dashboard() {
-  const [userData, setUserData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState<userData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [selectedProfilePic, setSelectedProfilePic] = useState('');
@@ -30,7 +33,7 @@ export default function Dashboard() {
       if (user) {
         setFirebaseUser(user);
       } else {
-        setIsLoading(false);
+        setLoading(false);
       }
     });
     return () => unsubscribe();
@@ -50,10 +53,14 @@ export default function Dashboard() {
         if (!response.ok) throw new Error('Failed to fetch user data');
         const data = await response.json();
         setUserData(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err : unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unknown error occurred when fetching data');
+        }
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     fetchUserData();
@@ -89,7 +96,7 @@ const handleQuestAction = async (actionType: string) => {
   };
 
   const handleSaveProfile = async () => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || !userData) return;
     setIsUploading(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/update`, {
@@ -113,7 +120,7 @@ const handleQuestAction = async (actionType: string) => {
     }
   };
 
-  if (isLoading) return <div className="dashboard-container"><h1 className="welcome-message">Loading your study stats...</h1></div>;
+  if (loading) return <div className="dashboard-container"><h1 className="welcome-message">Loading your study stats...</h1></div>;
   if (error) return <div className="dashboard-container"><h1 className="welcome-message">Error: {error}</h1></div>;
   if (!userData) return null;
 
@@ -159,7 +166,7 @@ const handleQuestAction = async (actionType: string) => {
         <div className="badges-row"> 
           {[1, 2, 3, 4, 5].map((slotId) => {
             const badgeInfo = allAchievements.find(a => a.id === slotId);
-            const isUnlocked = userData.achievements?.some((a: any) => a.id === slotId);
+            const isUnlocked = userData.achievements?.some((a: achievement) => a.id === slotId);
             return (
               <BadgeIcon key={slotId} icon={badgeInfo?.icon} lockedIcon={badgeInfo?.lockedIcon} title={badgeInfo?.title} isUnlocked={isUnlocked}/>
             );
@@ -232,7 +239,7 @@ const handleQuestAction = async (actionType: string) => {
               <label>Choose Profile Picture</label>
               {/* google profile picture */}
               {firebaseUser?.photoURL && (
-                <button className={`google-photo-btn ${selectedProfilePic === firebaseUser.photoURL ? 'selected' : ''}`} onClick={() => setSelectedProfilePic(firebaseUser.photoURL)}>
+                <button className={`google-photo-btn ${selectedProfilePic === firebaseUser.photoURL ? 'selected' : ''}`} onClick={() => setSelectedProfilePic(firebaseUser.photoURL || '')}>
                   <img src={firebaseUser.photoURL} alt="Google Auth" className="pfp-thumbnail" />
                   Use My Google Photo
                 </button>

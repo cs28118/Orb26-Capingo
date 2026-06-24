@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './flashcard.css';
 import { triggerToast } from '../components/Noti';
@@ -45,7 +45,7 @@ function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function loadDecks(): FlashcardDeck[] {
+function loadDecksFromStorage(): FlashcardDeck[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -56,7 +56,7 @@ function loadDecks(): FlashcardDeck[] {
   }
 }
 
-function saveDecks(decks: FlashcardDeck[]) {
+function saveDecksToStorage(decks: FlashcardDeck[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
 }
 
@@ -129,6 +129,9 @@ export default function Flashcards() {
   const [mode, setMode] = useState<ViewMode>('library');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+  const [saveError, setSaveError] = useState('');
+  const skipSaveRef = useRef(true);
 
   const [parsedPdf, setParsedPdf] = useState<ParsedPdf | null>(null);
   const [cardCount, setCardCount] = useState(20);
@@ -144,13 +147,98 @@ export default function Flashcards() {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) setFirebaseUser(user);
+      setFirebaseUser(user);
+      if (!user) setIsLoadingDecks(false);
     });
     return () => unsubscribe();
   }, []);
 
-//function to give xp
-const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createDeck') => {
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    setIsLoadingDecks(true);
+
+    const fetchDecks = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}`
+        );
+        if (!response.ok) throw new Error('Failed to load decks');
+        const data = await response.json();
+        let loaded: FlashcardDeck[] = data.decks ?? [];
+
+        if (loaded.length === 0) {
+          const localDecks = loadDecksFromStorage();
+          if (localDecks.length > 0) {
+            loaded = localDecks;
+            await fetch(`${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ decks: loaded }),
+            });
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+
+        setDecks(loaded);
+        if (loaded.length > 0) {
+          const sorted = [...loaded].sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            return b.updatedAt - a.updatedAt;
+          });
+          setActiveDeckId(sorted[0].id);
+        }
+        setSaveError('');
+      } catch (err) {
+        console.error('Error loading decks:', err);
+        const localDecks = loadDecksFromStorage();
+        setDecks(localDecks);
+        if (localDecks.length > 0) {
+          const sorted = [...localDecks].sort((a, b) => b.updatedAt - a.updatedAt);
+          setActiveDeckId(sorted[0].id);
+        }
+        setSaveError('Could not load decks from the server. Showing local copies.');
+      } finally {
+        skipSaveRef.current = true;
+        setIsLoadingDecks(false);
+      }
+    };
+
+    fetchDecks();
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (!firebaseUser || isLoadingDecks) return;
+
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decks }),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to save decks');
+        setSaveError('');
+      } catch (err) {
+        console.error('Error saving decks:', err);
+        saveDecksToStorage(decks);
+        setSaveError('Could not save to the server. A local backup was kept.');
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [firebaseUser, isLoadingDecks, decks]);
+
+  const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createDeck') => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/quest-action`, {
         method: 'POST',
@@ -174,10 +262,6 @@ const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createD
       console.error("Failed to award XP", err);
     }
   };
-
-  useEffect(() => {
-    if (decks.length > 0) saveDecks(decks);
-  }, [decks]);
 
   const activeDeck = decks.find((d) => d.id === activeDeckId) ?? null;
 
@@ -610,6 +694,10 @@ const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createD
 
   return (
     <div className="flashcard-page">
+      {isLoadingDecks ? (
+        <div className="flashcard-loading-decks">Loading your decks...</div>
+      ) : (
+      <>
       <aside className="flashcard-sidebar">
         <div className="flashcard-subheader">
           <span className="flashcard-subheader-title">Decks</span>
@@ -650,6 +738,7 @@ const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createD
       </aside>
 
       <section className="flashcard-main">
+        {saveError && <div className="flashcard-save-error">{saveError}</div>}
         <div className="flashcard-toolbar">
           <h2>
             {mode === 'upload'
@@ -702,6 +791,8 @@ const awardFlashcardXP = async (uid: string, actionType: 'reviewDeck' | 'createD
 
         <div className="flashcard-content">{renderMain()}</div>
       </section>
+      </>
+      )}
     </div>
   );
 }

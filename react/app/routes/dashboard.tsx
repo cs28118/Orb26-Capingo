@@ -158,6 +158,20 @@ const handleQuestAction = async (actionType: string) => {
               Level {userData.level} ({userData.currentXp}/{userData.xpToNextLevel} XP)
             </span>
           </div>
+
+          {userData.partnerCode && (
+            <div className="dashboard-partner-row">
+              <span className="dashboard-partner-code">Partner code: <strong>{userData.partnerCode}</strong></span>
+              <button
+                type="button"
+                className="dashboard-partner-copy"
+                onClick={() => navigator.clipboard.writeText(userData.partnerCode)}
+              >
+                Copy
+              </button>
+              <Link to="/home/collaboration" className="dashboard-partner-link">Find study partners →</Link>
+            </div>
+          )}
         </div>
       </div>
 

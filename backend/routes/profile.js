@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const UserProfile = require('../models/userProfile');
+const { assignUniquePartnerCode } = require('../utils/partnerCode');
 
 //helper 1
 const isYesterday = (date) => {
@@ -32,6 +33,9 @@ router.get('/:uid', async (req, res) => {
         username: username,
         email: email,
         profilePic: '/assets/profile-placeholder.png',
+        subjects: [],
+        manualSubjects: [],
+        openToPartners: true,
         achievements: [
           { id: 1, title: 'Welcome!', icon: '/assets/welcome-badge.png' }
         ],
@@ -43,6 +47,7 @@ router.get('/:uid', async (req, res) => {
         ]
       });
       await profile.save();
+      await assignUniquePartnerCode(profile);
       return res.json(profile);
     }
     //login detection (streaks xp and reset quest)
@@ -62,6 +67,7 @@ router.get('/:uid', async (req, res) => {
       profile.lastLoginDate = new Date();
       await profile.save();
     }
+    await assignUniquePartnerCode(profile);
     res.json(profile);
   } catch (err) {
     console.error('Error fetching profile:', err);

@@ -291,7 +291,15 @@ async function respondWithParsedPdf(buffer, fileName, res) {
 app.use(cors());
 app.use(express.json({ limit: `${(Number(process.env.MAX_PDF_MB || 10) + 5)}mb` }));
 const profileRoutes = require('./routes/profile');
+const timetableRoutes = require('./routes/timetable');
+const deckRoutes = require('./routes/decks');
+const chatRoutes = require('./routes/chats');
+const partnerRoutes = require('./routes/partners');
 app.use('/api/profile', profileRoutes);
+app.use('/api/timetable', timetableRoutes);
+app.use('/api/decks', deckRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/partners', partnerRoutes);
 app.get('/', (req, res) => {
   res.send('Capingo is running');
 });

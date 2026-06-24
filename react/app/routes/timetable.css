@@ -475,3 +475,39 @@
   background-color: #ffe4e6;
   border-color: #fca5a5;
 }
+
+.timetable-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--text-muted, #666);
+}
+
+.timetable-save-error {
+  grid-column: 1 / -1;
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+.subject-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.subject-badge-event {
+  display: block;
+  margin-bottom: 4px;
+  width: fit-content;
+}

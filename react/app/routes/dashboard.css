@@ -380,3 +380,35 @@
     text-align: center;
   }
 }
+
+.dashboard-partner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.dashboard-partner-code {
+  color: #6b7280;
+}
+
+.dashboard-partner-copy {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.dashboard-partner-link {
+  color: #92400e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-partner-link:hover {
+  text-decoration: underline;
+}

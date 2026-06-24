@@ -27,7 +27,14 @@ const UserProfileSchema = new mongoose.Schema({
     id: Number,
     action: String,
     reward: Number
-  }]
+  }],
+
+  subjects: { type: [String], default: [] },
+  manualSubjects: { type: [String], default: [] },
+  partnerCode: { type: String, unique: true, sparse: true },
+  openToPartners: { type: Boolean, default: true },
 });
+
+UserProfileSchema.index({ subjects: 1 });
 
 module.exports = mongoose.model('UserProfile', UserProfileSchema);

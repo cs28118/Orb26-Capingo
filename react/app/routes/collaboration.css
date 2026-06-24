@@ -1,0 +1,271 @@
+.collaboration-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.collaboration-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.06));
+}
+
+.collaboration-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+}
+
+.collaboration-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.partner-code-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #f6d96a;
+  border-radius: 10px;
+}
+
+.partner-code-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.partner-code-value {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #3d2914;
+}
+
+.collab-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.collab-btn:hover {
+  background: #f9fafb;
+}
+
+.collab-btn-primary {
+  background: #f6d96a;
+  border-color: #e5c55a;
+  color: #3d2914;
+  font-weight: 600;
+}
+
+.collab-btn-primary:hover {
+  background: #f0d050;
+}
+
+.collab-btn-danger {
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.collab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.collab-panel {
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.06));
+}
+
+.collab-panel h2 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.collab-full-width {
+  grid-column: 1 / -1;
+}
+
+.subject-section {
+  margin-bottom: 16px;
+}
+
+.subject-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.subject-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.subject-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.subject-chip-synced {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.subject-chip-manual {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.subject-chip-shared {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.subject-chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.manual-subject-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.manual-subject-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.open-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+
+.partner-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.partner-card img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+
+.partner-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.partner-card-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.partner-card-meta {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.partner-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.add-partner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.add-partner-form input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.collab-empty {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  padding: 12px 0;
+}
+
+.collab-error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.collab-success {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.collab-loading {
+  text-align: center;
+  padding: 48px;
+  color: #6b7280;
+}
+
+@media (max-width: 768px) {
+  .collab-grid {
+    grid-template-columns: 1fr;
+  }
+}

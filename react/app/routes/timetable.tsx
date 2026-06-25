@@ -1,6 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './timetable.css';
 type PriorityLevel = 'High' | 'Medium' | 'Low';
+
+const PRESET_SUBJECTS = [
+  'Maths',
+  'Biology',
+  'Chemistry',
+  'Physics',
+  'History',
+  'English',
+  'Computer Science',
+];
 
 interface Todo {
   id: string;
@@ -11,6 +22,7 @@ interface Todo {
   priority: 'High' | 'Medium' | 'Low';
   allowSplit: boolean;
   deadline: string;
+  subject?: string;
 }
 
 interface Event {
@@ -20,12 +32,18 @@ interface Event {
   day: string;
   startHour: string;
   duration: number;
+  subject?: string;
 }
 
 export default function Timetable() {
   // Available days and timeslots for timetable grid
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const timeslots = ['8am', '9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm', '9pm'];
+
+  const [firebaseUser, setFirebaseUser] = useState<{ uid: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveError, setSaveError] = useState('');
+  const skipSaveRef = useRef(true);
 
   const [todoList, setTodoList] = useState<Todo[]>([]);
   const [eventsList, setEventsList] = useState<Event[]>([]);
@@ -41,14 +59,88 @@ export default function Timetable() {
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Low');
   const [allowSplit, setAllowSplit] = useState(false);
   const [deadline, setDeadline] = useState('');
+  const [subject, setSubject] = useState('');
 
-  // For Auto-Generation Interface
+  const knownSubjects = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const s of PRESET_SUBJECTS) seen.set(s.toLowerCase(), s);
+    for (const item of [...todoList, ...eventsList]) {
+      const trimmed = (item.subject || '').trim();
+      if (trimmed) seen.set(trimmed.toLowerCase(), trimmed);
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  }, [todoList, eventsList]);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedStart, setSelectedStart] = useState('');
   const [selectedEnd, setSelectedEnd] = useState('');
   const [breakStart, setBreakStart] = useState('');
   const [breakEnd, setBreakEnd] = useState('');
   const [enabledDays, setEnabledDays] = useState<string[]>([]);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      if (!user) setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    setIsLoading(true);
+
+    const fetchTimetable = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/timetable/${firebaseUser.uid}`
+        );
+        if (!response.ok) throw new Error('Failed to load timetable');
+        const data = await response.json();
+        setTodoList(data.todos ?? []);
+        setEventsList(data.events ?? []);
+        setSaveError('');
+      } catch (err) {
+        console.error('Error loading timetable:', err);
+        setSaveError('Could not load your timetable.');
+      } finally {
+        skipSaveRef.current = true;
+        setIsLoading(false);
+      }
+    };
+
+    fetchTimetable();
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (!firebaseUser || isLoading) return;
+
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/timetable/${firebaseUser.uid}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ todos: todoList, events: eventsList }),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to save timetable');
+        setSaveError('');
+      } catch (err) {
+        console.error('Error saving timetable:', err);
+        setSaveError('Could not save changes. They are kept locally until you refresh.');
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [firebaseUser, isLoading, todoList, eventsList]);
 
   // --- Reset Forms & Close Interfaces ---
   const closeModal = () => {
@@ -59,6 +151,7 @@ export default function Timetable() {
     setRemarks('');
     setTimeNeeded('');
     setDeadline('');
+    setSubject('');
     setSelectedDay('');
     setSelectedStart('');
     setSelectedEnd('');
@@ -78,7 +171,8 @@ export default function Timetable() {
       hoursNeeded: timeNeeded === '' ? 1 : Number(timeNeeded),
       priority,
       allowSplit,
-      deadline: deadline || '2026-06-08'
+      deadline: deadline || '2026-06-08',
+      subject: subject.trim(),
     };
     setTodoList([...todoList, newTask]);
     closeModal();
@@ -99,7 +193,8 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
     remarks,
     day: selectedDay,
     startHour: selectedStart,
-    duration: !timeNeeded ? 1 : Number(timeNeeded)
+    duration: !timeNeeded ? 1 : Number(timeNeeded),
+    subject: subject.trim(),
   };
 
   setEventsList([...eventsList, newEvent]);
@@ -156,7 +251,8 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
           title: task.title,
           day: activeDayStr,
           startHour: timeslots[currentHourIdx],
-          duration: blockDuration
+          duration: blockDuration,
+          subject: task.subject || '',
         });
 
         hoursRemaining -= blockDuration;
@@ -188,6 +284,7 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
   setPriority(task.priority);
   setAllowSplit(task.allowSplit);
   setDeadline(task.deadline);
+  setSubject(task.subject || '');
   setActiveModal('EDIT_TASK');
 };
 
@@ -196,7 +293,7 @@ const handleUpdateTaskSubmit = (e: React.FormEvent) => {
   e.preventDefault();
   if (!selectedTask) return;
   setTodoList(prev => prev.map(t => t.id === selectedTask.id ? {
-    ...t, title: taskTitle, remarks, hoursNeeded: timeNeeded === '' ? 1 : Number(timeNeeded), priority, allowSplit, deadline
+    ...t, title: taskTitle, remarks, hoursNeeded: timeNeeded === '' ? 1 : Number(timeNeeded), priority, allowSplit, deadline, subject: subject.trim()
   } : t));
   closeModal();
 };
@@ -214,6 +311,7 @@ const openEditEventModal = (event: Event) => {
   setSelectedDay(event.day);
   setSelectedStart(event.startHour);
   setTimeNeeded(event.duration);
+  setSubject(event.subject || '');
   setActiveModal('EDIT_EVENT');
 };
 
@@ -221,7 +319,7 @@ const handleUpdateEventSubmit = (e: React.FormEvent) => {
   e.preventDefault();
   if (!selectedEvent) return;
   setEventsList(prev => prev.map(evt => evt.id === selectedEvent.id ? {
-    ...evt, title: taskTitle, remarks, day: selectedDay, startHour: selectedStart, duration: Number(timeNeeded)
+    ...evt, title: taskTitle, remarks, day: selectedDay, startHour: selectedStart, duration: Number(timeNeeded), subject: subject.trim()
   } : evt));
   closeModal();
 };
@@ -231,8 +329,17 @@ const handleRemoveEvent = (eventId: string) => {
   closeModal();
 };
 
+  if (isLoading) {
+    return (
+      <div className="timetable-wrapper">
+        <p className="timetable-loading">Loading your timetable...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="timetable-wrapper">
+      {saveError && <p className="timetable-save-error">{saveError}</p>}
       
       {/* to-do list */}
       <section className="timetable-control-deck">
@@ -247,6 +354,7 @@ const handleRemoveEvent = (eventId: string) => {
                 <div key={task.id} className="todo-item">
                   <div className="todo-title-row-container">
                   <div className="todo-title">
+                    {task.subject && <span className="subject-badge">{task.subject}</span>}
                     <strong>📌 {task.index}. {task.title}</strong>
                   </div>
                   <button type="button" className="todo-card-edit-btn" onClick={() => openEditTaskModal(task)} title="Edit Task">
@@ -294,6 +402,9 @@ const handleRemoveEvent = (eventId: string) => {
                     return (
                       <td key={time} colSpan={dynamicColSpan} className="matrix-slotted-block-cell">
                         <div className="slotted-event-card">
+                          {activeEvent.subject && (
+                            <span className="subject-badge subject-badge-event">{activeEvent.subject}</span>
+                          )}
                           <p className="event-txt">{activeEvent.title}</p>
                           <span className="event-details-trigger" onClick={() => openEditEventModal(activeEvent)}>Details</span>
                         </div>
@@ -323,6 +434,12 @@ const handleRemoveEvent = (eventId: string) => {
         <div className="timetable-modal-dimmer-layer">
           <div className="timetable-modal-window">
             <button className="close-modal-btn" onClick={closeModal}>×</button>
+
+            <datalist id="subject-suggestions">
+              {knownSubjects.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
             
             {/* add task button */}
             {activeModal === 'ADDTASK' && (
@@ -330,6 +447,16 @@ const handleRemoveEvent = (eventId: string) => {
                 <div className="form-fields">
                   <label>Task:</label>
                   <input type="text" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required placeholder="Revise for History test" />
+                </div>
+                <div className="form-fields">
+                  <label>Subject:</label>
+                  <input
+                    type="text"
+                    list="subject-suggestions"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="e.g. Biology"
+                  />
                 </div>
                 <div className="form-fields">
                   <label>Remarks:</label>
@@ -415,6 +542,16 @@ const handleRemoveEvent = (eventId: string) => {
                   <input type="text" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required placeholder="Revise for History test" />
                 </div>
                 <div className="form-fields">
+                  <label>Subject:</label>
+                  <input
+                    type="text"
+                    list="subject-suggestions"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="e.g. Biology"
+                  />
+                </div>
+                <div className="form-fields">
                   <label>Remarks:</label>
                   <input type="text" value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="e.g. Chapter 4 focus" />
                 </div>
@@ -451,6 +588,17 @@ const handleRemoveEvent = (eventId: string) => {
                 <div className="form-fields">
                   <label>Task Title:</label>
                   <input type="text" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required />
+                </div>
+
+                <div className="form-fields">
+                  <label>Subject:</label>
+                  <input
+                    type="text"
+                    list="subject-suggestions"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="e.g. Biology"
+                  />
                 </div>
                 
                 <div className="form-fields">
@@ -499,6 +647,17 @@ const handleRemoveEvent = (eventId: string) => {
                 <div className="form-fields">
                   <label>Event Name:</label>
                   <input type="text" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required />
+                </div>
+
+                <div className="form-fields">
+                  <label>Subject:</label>
+                  <input
+                    type="text"
+                    list="subject-suggestions"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="e.g. Biology"
+                  />
                 </div>
                 
                 <div className="form-fields">

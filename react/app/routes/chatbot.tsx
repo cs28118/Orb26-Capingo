@@ -5,7 +5,6 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 
 const STORAGE_KEY = 'capingo-chats';
-const RESET_MARKER = 'capingo-memory-reset-v2';
 
 const RECENT_WINDOW = 6;
 const SUMMARIZE_AFTER = 10;
@@ -39,6 +38,15 @@ type Chat = {
   updatedAt: number;
   memorySummary?: string;
   memoryUpToIndex?: number;
+  messageCount?: number;
+};
+
+type ChatSummary = {
+  id: string;
+  title: string;
+  pinned?: boolean;
+  updatedAt: number;
+  messageCount?: number;
 };
 
 type ApiMessage = { role: 'user' | 'assistant'; content: string };
@@ -99,7 +107,7 @@ function formatInline(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
-function loadChats(): Chat[] {
+function loadChatsFromStorage(): Chat[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -110,8 +118,25 @@ function loadChats(): Chat[] {
   }
 }
 
-function saveChats(chats: Chat[]) {
+function saveChatsToStorage(chats: Chat[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+}
+
+function summaryToChat(summary: ChatSummary): Chat {
+  return {
+    id: summary.id,
+    title: summary.title,
+    pinned: summary.pinned,
+    updatedAt: summary.updatedAt,
+    messages: [],
+    memoryUpToIndex: 0,
+    messageCount: summary.messageCount,
+  };
+}
+
+function isChatFullyLoaded(chat: Chat): boolean {
+  const expected = chat.messageCount ?? chat.messages.length;
+  return chat.messages.length > 0 || expected === 0;
 }
 
 function createChat(): Chat {
@@ -178,6 +203,55 @@ function getApiBase(): string {
   return '';
 }
 
+async function fetchChatList(uid: string): Promise<ChatSummary[]> {
+  const res = await fetch(`${getApiBase()}/api/chats/${uid}`);
+  if (!res.ok) throw new Error('Failed to load chats');
+  const data = await res.json();
+  return data.chats ?? [];
+}
+
+async function fetchFullChat(uid: string, chatId: string): Promise<Chat> {
+  const res = await fetch(`${getApiBase()}/api/chats/${uid}/${chatId}`);
+  if (!res.ok) throw new Error('Failed to load chat');
+  return res.json();
+}
+
+async function persistChat(uid: string, chat: Chat): Promise<void> {
+  const res = await fetch(`${getApiBase()}/api/chats/${uid}/${chat.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: chat.title,
+      pinned: chat.pinned ?? false,
+      messages: chat.messages,
+      memorySummary: chat.memorySummary ?? '',
+      memoryUpToIndex: chat.memoryUpToIndex ?? 0,
+      updatedAt: chat.updatedAt,
+    }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to save chat');
+  }
+}
+
+async function createChatOnServer(uid: string, chat: Chat): Promise<Chat> {
+  const res = await fetch(`${getApiBase()}/api/chats/${uid}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId: chat.id, title: chat.title }),
+  });
+  if (!res.ok) throw new Error('Failed to create chat');
+  return res.json();
+}
+
+async function migrateLocalChats(uid: string, localChats: Chat[]): Promise<void> {
+  for (const chat of localChats) {
+    await persistChat(uid, chat);
+  }
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 //function to give xp
 const awardChatbotXP = async (uid: string) => {
     try {
@@ -223,23 +297,84 @@ export default function Chatbot() {
   );
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setFirebaseUser(user);
-      }
+      setFirebaseUser(user);
+      if (!user) setIsLoadingChats(false);
     });
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (chats.length > 0) saveChats(chats);
-  }, [chats]);
+    if (!firebaseUser) return;
+
+    setIsLoadingChats(true);
+
+    const loadChats = async () => {
+      try {
+        let summaries = await fetchChatList(firebaseUser.uid);
+
+        if (summaries.length === 0) {
+          const localChats = loadChatsFromStorage();
+          if (localChats.length > 0) {
+            await migrateLocalChats(firebaseUser.uid, localChats);
+            summaries = await fetchChatList(firebaseUser.uid);
+          }
+        }
+
+        if (summaries.length === 0) {
+          setChats([]);
+          setActiveChatId(null);
+          setSaveError('');
+          return;
+        }
+
+        const chatList = summaries.map(summaryToChat);
+        const sorted = [...summaries].sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return b.updatedAt - a.updatedAt;
+        });
+        const firstId = sorted[0].id;
+
+        setChats(chatList);
+        setActiveChatId(firstId);
+
+        const firstSummary = sorted[0];
+        if ((firstSummary.messageCount ?? 0) > 0) {
+          const full = await fetchFullChat(firebaseUser.uid, firstId);
+          setChats((prev) => prev.map((c) => (c.id === firstId ? full : c)));
+        }
+
+        setSaveError('');
+      } catch (err) {
+        console.error('Error loading chats:', err);
+        const localChats = loadChatsFromStorage();
+        setChats(localChats);
+        if (localChats.length > 0) {
+          const sorted = [...localChats].sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            return b.updatedAt - a.updatedAt;
+          });
+          setActiveChatId(sorted[0].id);
+        }
+        setSaveError('Could not load chats from the server. Showing local copies.');
+      } finally {
+        setIsLoadingChats(false);
+      }
+    };
+
+    loadChats();
+  }, [firebaseUser]);
 
   const activeChat = chats.find((c) => c.id === activeChatId) ?? null;
 
@@ -257,16 +392,61 @@ export default function Chatbot() {
     setChats((prev) => prev.map((c) => (c.id === chatId ? updater(c) : c)));
   }, []);
 
-  const handleNewChat = () => {
+  const handleSelectChat = async (chatId: string) => {
+    setActiveChatId(chatId);
+    setError(null);
+    if (!firebaseUser) return;
+
+    const chat = chats.find((c) => c.id === chatId);
+    if (chat && isChatFullyLoaded(chat)) return;
+
+    setIsLoadingChat(true);
+    try {
+      const full = await fetchFullChat(firebaseUser.uid, chatId);
+      setChats((prev) => prev.map((c) => (c.id === chatId ? full : c)));
+      setSaveError('');
+    } catch (err) {
+      console.error('Error loading chat:', err);
+      setSaveError('Could not load this conversation.');
+    } finally {
+      setIsLoadingChat(false);
+    }
+  };
+
+  const handleNewChat = async () => {
     const chat = createChat();
     setChats((prev) => [chat, ...prev]);
     setActiveChatId(chat.id);
     setInput('');
     setError(null);
+
+    if (!firebaseUser) return;
+
+    try {
+      await createChatOnServer(firebaseUser.uid, chat);
+      setSaveError('');
+    } catch (err) {
+      console.error('Error creating chat:', err);
+      setSaveError('Could not save new chat to the server.');
+    }
   };
 
-  const togglePin = (chatId: string) => {
-    updateChat(chatId, (c) => ({ ...c, pinned: !c.pinned }));
+  const togglePin = async (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return;
+
+    const updated: Chat = { ...chat, pinned: !chat.pinned, updatedAt: Date.now() };
+    setChats((prev) => prev.map((c) => (c.id === chatId ? updated : c)));
+
+    if (!firebaseUser) return;
+
+    try {
+      await persistChat(firebaseUser.uid, updated);
+      setSaveError('');
+    } catch (err) {
+      console.error('Error saving pin:', err);
+      setSaveError('Could not save pin change.');
+    }
   };
 
   const sendMessage = async (text: string) => {
@@ -276,7 +456,7 @@ export default function Chatbot() {
     if (firebaseUser) {
       awardChatbotXP(firebaseUser.uid);
     }
-    
+
     setError(null);
 
     let chatId = activeChatId;
@@ -288,6 +468,14 @@ export default function Chatbot() {
       currentChats = [chat, ...chats];
       setChats(currentChats);
       setActiveChatId(chatId);
+
+      if (firebaseUser) {
+        try {
+          await createChatOnServer(firebaseUser.uid, chat);
+        } catch (err) {
+          console.error('Error creating chat:', err);
+        }
+      }
     }
 
     const userMessage: Message = {
@@ -316,6 +504,8 @@ export default function Chatbot() {
     setInput('');
 
     setIsLoading(true);
+    let chatToPersist: Chat = withUser;
+
     try {
       const base = getApiBase();
       const { memorySummary, memoryUpToIndex } = await refreshMemorySummary(
@@ -325,6 +515,8 @@ export default function Chatbot() {
       );
 
       if (memorySummary !== withUser.memorySummary || memoryUpToIndex !== (withUser.memoryUpToIndex ?? 0)) {
+        withUser.memorySummary = memorySummary;
+        withUser.memoryUpToIndex = memoryUpToIndex;
         updateChat(chatId, (c) => ({
           ...c,
           memorySummary,
@@ -354,17 +546,36 @@ export default function Chatbot() {
         createdAt: Date.now(),
       };
 
-      updateChat(chatId, (c) => ({
-        ...c,
+      chatToPersist = {
+        ...withUser,
         memorySummary,
         memoryUpToIndex,
-        messages: [...c.messages, assistantMessage],
+        messages: [...withUser.messages, assistantMessage],
         updatedAt: Date.now(),
-      }));
+      };
+
+      updateChat(chatId, () => chatToPersist);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get a response');
     } finally {
       setIsLoading(false);
+
+      if (firebaseUser) {
+        try {
+          await persistChat(firebaseUser.uid, chatToPersist);
+          setSaveError('');
+        } catch (persistErr) {
+          console.error('Error saving chat:', persistErr);
+          setChats((prev) => {
+            const updated = prev.some((c) => c.id === chatToPersist.id)
+              ? prev.map((c) => (c.id === chatToPersist.id ? chatToPersist : c))
+              : [chatToPersist, ...prev];
+            saveChatsToStorage(updated);
+            return prev;
+          });
+          setSaveError('Could not save conversation to the server. A local backup was kept.');
+        }
+      }
     }
   };
 
@@ -381,6 +592,14 @@ export default function Chatbot() {
   };
 
   const hasMessages = (activeChat?.messages.length ?? 0) > 0;
+
+  if (isLoadingChats) {
+    return (
+      <div className="chatbot-page">
+        <div className="chatbot-loading">Loading your conversations...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="chatbot-page">
@@ -420,10 +639,7 @@ export default function Chatbot() {
                   key={chat.id}
                   type="button"
                   className={`chat-recent-item ${chat.id === activeChatId ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveChatId(chat.id);
-                    setError(null);
-                  }}
+                  onClick={() => handleSelectChat(chat.id)}
                 >
                   <span className="chat-recent-item-icon">{chat.pinned ? '📌' : '💬'}</span>
                   <div className="chat-recent-item-body">
@@ -456,7 +672,9 @@ export default function Chatbot() {
         )}
 
         <div className="chat-messages-area">
-          {!hasMessages ? (
+          {isLoadingChat ? (
+            <div className="chatbot-loading-inline">Loading conversation...</div>
+          ) : !hasMessages ? (
             <div className="chat-empty-state">
               <h2>Ask Capingo AI anything</h2>
               <p>Try one of the suggestions on the right, or type below.</p>
@@ -486,6 +704,7 @@ export default function Chatbot() {
           )}
         </div>
 
+        {saveError && <div className="chat-save-error">{saveError}</div>}
         {error && <div className="chat-error-banner">{error}</div>}
 
         <div className="chat-input-section">

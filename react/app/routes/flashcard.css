@@ -378,3 +378,20 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+.flashcard-loading-decks {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 16px;
+  color: #6b7280;
+}
+
+.flashcard-save-error {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  font-size: 0.9rem;
+}

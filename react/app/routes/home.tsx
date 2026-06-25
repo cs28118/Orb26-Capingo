@@ -91,7 +91,7 @@ export default function Home() {
                     </NavLink>
                     
                     <NavLink to="/home/collaboration" className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}>
-                        Collaboration
+                        Study Partners
                     </NavLink>
                 </nav>
 

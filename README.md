@@ -52,6 +52,16 @@ Your home screen after login.
 
 ---
 
+### XP Level system
+
+A system that are implemented to **motivate** the users to engage in studying on Capingo.
+
+- Gain XP through daily login streak and completing quest
+- Login streak XP claim button and quest list are shown in dashboard
+- Everytime you completed a quest, a toast message will pop out to notify you
+
+---
+
 ### Timetable
 
 Plan **when** you'll study. Your timetable is **saved to MongoDB** per account.

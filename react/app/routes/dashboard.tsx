@@ -4,10 +4,11 @@ import { Link } from 'react-router';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './dashboard.css';
-import { triggerToast } from '../components/Noti';
+import { triggerToast } from '../components/NotiHelper';
 import type { userData } from '../types/types';
 import type { User } from 'firebase/auth';
 import type { achievement } from '../types/types';
+import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 const presetProfilePic = [
   '/assets/profile-placeholder.png',
@@ -66,32 +67,45 @@ export default function Dashboard() {
     fetchUserData();
   }, [firebaseUser]);
 
-  //quest action handle
-const handleQuestAction = async (actionType: string) => {
+  //login streak and button handle
+  const handleLoginStreak = async () => {
     if (!firebaseUser) return;
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/quest-action`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/claim-streak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          actionType: actionType
-        })
+        body: JSON.stringify({ uid: firebaseUser.uid })
       });
-      if (!response.ok) throw new Error('Failed to record quest action');
+      if (!response.ok) throw new Error('Failed to claim streak');
       const data = await response.json();
+      const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+
+      //achievement manage
+      if (newlyUnlockedIds.length > 0) {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: firebaseUser.uid,
+            newAchievementIds: newlyUnlockedIds
+          })
+        });
+        data.profile.achievements = [
+          ...(data.profile.achievements || []),
+          ...newlyUnlockedIds.map((id: number) => ({ id }))
+        ];
+      }
+
+      //xp manage
       setUserData(data.profile);
-      if (data.message && data.message.includes('XP')) {
-        triggerToast('quest', 'QUEST', data.message);
-      } 
-      else if (data.message && data.message.includes('cap')) {
-        triggerToast('quest', 'QUEST', 'Login streak already claimed today!');
+      if (data.message) {
+        triggerToast('login', 'DAILY STREAK', data.message);
       }
       if (data.leveledUp) {
         triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
       }
     } catch (err) {
-      console.error("Error processing quest:", err);
+      console.error("Error claiming login streak:", err);
     }
   };
 
@@ -205,7 +219,7 @@ const handleQuestAction = async (actionType: string) => {
                 ✓ Claimed
               </span>
             ) : (
-              <button className="save-btn" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => handleQuestAction('loginStreak')}>
+              <button className="save-btn" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={handleLoginStreak}>
                 Claim {Math.min((userData.streakDays || 1) * 20, 100)} XP
               </button>
             )}

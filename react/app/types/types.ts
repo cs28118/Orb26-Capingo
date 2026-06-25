@@ -33,4 +33,8 @@ export interface userData {
   dailyProgress: dailyProgress;
   achievements: achievement[];
   quests: quest[];
+  subjects: string[];
+  manualSubjects: string[];
+  partnerCode: string;
+  openToPartners?: boolean;
 }

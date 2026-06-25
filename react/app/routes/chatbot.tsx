@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
-import { triggerToast } from '../components/Noti';
+import { triggerToast } from '../components/NotiHelper';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 

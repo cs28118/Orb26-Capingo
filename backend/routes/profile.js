@@ -82,6 +82,44 @@ const QUEST_DICT = {
   createDeck:  { xp: 30, limit: 1, key: 'decksCreated', name: 'Flashcard Deck Created' }
 };
 
+//login streak
+router.post('/claim-streak', async (req, res) => {
+  try {
+    const { uid } = req.body;
+    const profile = await UserProfile.findOne({ firebaseUid: uid });
+    if (!profile) return res.status(404).json({ error: 'User not found' });
+    if (profile.dailyProgress.streakClaimed >= 1) {
+      return res.json({ 
+        success: true, 
+        leveledUp: false, 
+        message: 'Login streak already claimed today!', 
+        profile 
+      });
+    }
+    const currentStreak = profile.streakDays || 1;
+    const xpToAdd = Math.min(currentStreak * 20, 100);
+    profile.dailyProgress.streakClaimed += 1;
+    profile.currentXp += xpToAdd;
+    let leveledUp = false;
+    while (profile.currentXp >= profile.xpToNextLevel) {
+      profile.currentXp -= profile.xpToNextLevel;
+      profile.level += 1;
+      profile.xpToNextLevel = Math.floor(profile.level * 150); 
+      leveledUp = true;
+    }
+    await profile.save();
+    res.json({
+      success: true,
+      leveledUp,
+      message: `+${xpToAdd} XP for Day ${currentStreak} Streak!`,
+      profile
+    });
+  } catch (err) {
+    console.error('Error claiming streak:', err);
+    res.status(500).json({ error: 'Server error claiming streak' });
+  }
+});
+
 //do quest
 router.post('/quest-action', async (req, res) => {
   try {
@@ -95,13 +133,7 @@ router.post('/quest-action', async (req, res) => {
     let actionName = quest.name;
     if (profile.dailyProgress[quest.key] < quest.limit) {
       profile.dailyProgress[quest.key] += 1;
-      if (actionType === 'loginStreak') {
-        const currentStreak = profile.streakDays || 1;
-        xpToAdd = Math.min(currentStreak * 20, 100); 
-        actionName = `Day ${currentStreak} Login Streak`;
-      } else {
-        xpToAdd = quest.xp;
-      }
+      xpToAdd = quest.xp;
     }
     //capped
     if (xpToAdd === 0) {
@@ -147,6 +179,37 @@ router.post('/update', async (req, res) => {
   } catch (err) {
     console.error('Error updating profile:', err);
     res.status(500).json({ error: 'Server error updating profile' });
+  }
+});
+
+//achievement unlock
+router.post('/unlock-achievements', async (req, res) => {
+  try {
+    const { uid, newAchievementIds } = req.body;
+    const profile = await UserProfile.findOne({ firebaseUid: uid });
+    if (!profile) return res.status(404).json({ error: 'User not found' });
+    if (!newAchievementIds || !Array.isArray(newAchievementIds)) {
+      return res.status(400).json({ error: 'Invalid achievement data' });
+    }
+    const ownedIds = profile.achievements.map(a => a.id);
+    let addedCount = 0;
+    newAchievementIds.forEach(badgeId => {
+      if (!ownedIds.includes(badgeId)) {
+        profile.achievements.push({ id: badgeId });
+        addedCount++;
+      }
+    });
+    if (addedCount > 0) {
+      await profile.save();
+    }
+    res.json({
+      success: true,
+      message: `Successfully unlocked ${addedCount} achievements.`,
+      profile
+    });
+  } catch (err) {
+    console.error('Error unlocking achievements:', err);
+    res.status(500).json({ error: 'Server error unlocking achievements' });
   }
 });
 

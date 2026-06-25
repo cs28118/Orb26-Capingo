@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react';
+import type { ToastMessage } from './NotiHelper';
 import './Noti.css';
-
-export type ToastMessage = {
-  id: number;
-  type: 'quest' | 'levelup';
-  title: string;
-  message: string;
-};
-
-export const triggerToast = (type: 'quest' | 'levelup', title: string, message: string) => {
-  const event = new CustomEvent('capingo-toast', { detail: { type, title, message } });
-  window.dispatchEvent(event);
-};
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -32,11 +21,25 @@ export default function ToastContainer() {
   };
 
   return (
-    <div className="toast-container">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
-      ))}
-    </div>
+    <>
+      {/* standard box (bottom right) */}
+      <div className="toast-container">
+        {toasts
+              .filter((toast) => toast.type !== 'achievement')
+              .map((toast) => (
+                <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
+        ))}
+      </div>
+
+      {/* achievement box (top center) */}
+      <div className="toast-container-achievement">
+        {toasts
+              .filter((toast) => toast.type === 'achievement')
+              .map((toast) => (
+                <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -50,14 +53,22 @@ function ToastItem({ toast, onClose }: { toast: ToastMessage, onClose: () => voi
 
   return (
     <div className={`toast-box ${toast.type}`}>
-      <div className="toast-header">
-        <strong>{toast.title}</strong>
-        <button className="toast-close" onClick={onClose}>X</button>
+
+    {toast.icon && (
+        <div className="toast-icon-container">
+          <img src={toast.icon} alt="Achievement Badge" className="toast-badge-img" />
+        </div>
+    )}
+    <div className="toast-text-container">
+        <div className="toast-header">
+          <strong>{toast.title}</strong>
+          <button className="toast-close" onClick={onClose}>X</button>
+        </div>
+        <div className="toast-content">
+          <p>{toast.message}</p>
+        </div>
+        <div className="toast-progress-bar"></div>
       </div>
-      <div className="toast-content">
-        <p>{toast.message}</p>
-      </div>
-      <div className="toast-progress-bar"></div>
     </div>
   );
 }

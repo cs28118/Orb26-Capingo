@@ -62,6 +62,15 @@ A system that are implemented to **motivate** the users to engage in studying on
 
 ---
 
+### Achievement system
+
+A system that are implemented to **motivate** the users to engage in studying on Capingo.
+
+- Gain achievement through completing specified actions
+- Currently implemented (Welcome! achievement and login streak achievement)
+
+---
+
 ### Timetable
 
 Plan **when** you'll study. Your timetable is **saved to MongoDB** per account.

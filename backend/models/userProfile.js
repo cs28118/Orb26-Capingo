@@ -18,9 +18,7 @@ const UserProfileSchema = new mongoose.Schema({
   },
   
   achievements: [{
-    id: Number,
-    title: String,
-    icon: String
+    id: Number
   }],
   
   quests: [{

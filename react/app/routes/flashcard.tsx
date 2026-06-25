@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './flashcard.css';
-import { triggerToast } from '../components/Noti';
+import { triggerToast } from '../components/NotiHelper';
 import type { User } from 'firebase/auth';
 
 const STORAGE_KEY = 'capingo-flashcard-decks';

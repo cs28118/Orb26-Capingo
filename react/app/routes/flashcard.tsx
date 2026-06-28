@@ -112,7 +112,7 @@ async function fileToBase64(file: File): Promise<string> {
 
 export default function Flashcards() {
   const [decks, setDecks] = useState<FlashcardDeck[]>(() => {
-  const stored = loadDecks();
+  const stored = loadDecksFromStorage();
   
   if (stored.length > 0) {
     return [...stored].sort((a, b) => {

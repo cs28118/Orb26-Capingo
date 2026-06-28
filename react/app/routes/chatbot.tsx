@@ -277,20 +277,15 @@ const awardChatbotXP = async (uid: string) => {
 
 export default function Chatbot() {
   const [chats, setChats] = useState<Chat[]>(() => {
-  if (!localStorage.getItem(RESET_MARKER)) {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.setItem(RESET_MARKER, '1');
-    return [];
-  }
-  const stored = loadChats();
-  if (stored.length > 0) {
-    return [...stored].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return b.updatedAt - a.updatedAt;
-    });
-  }
-  return stored; 
+    const stored = loadChatsFromStorage();
+    if (stored.length > 0) {
+      return [...stored].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return b.updatedAt - a.updatedAt;
+      });
+    }
+    return stored;
   });
   const [activeChatId, setActiveChatId] = useState<string | null>(
     chats.length > 0 ? chats[0].id : null

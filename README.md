@@ -52,22 +52,29 @@ Your home screen after login.
 
 ---
 
-### XP Level system
+### XP & levels
 
-A system that are implemented to **motivate** the users to engage in studying on Capingo.
+Earn XP for studying on Capingo. Your level, XP bar, and daily progress are stored in **MongoDB** on your profile.
 
-- Gain XP through daily login streak and completing quest
-- Login streak XP claim button and quest list are shown in dashboard
-- Everytime you completed a quest, a toast message will pop out to notify you
+- **Login streak** — claim from the Dashboard quest list (20 XP per streak day, capped at 100 XP)
+- **Daily quests** — review flashcards (up to 2/day, 60 XP each), send chat messages (up to 5/day, 50 XP each), create a deck (1/day, 30 XP)
+- **Leveling** — fill the XP bar to level up; the threshold increases each level
+- Toast notifications confirm XP gains and level-ups
 
 ---
 
-### Achievement system
+### Achievements
 
-A system that are implemented to **motivate** the users to engage in studying on Capingo.
+Unlock badges for milestones. The Dashboard shows a preview; **View all** opens the full achievements page (`/home/achievements`).
 
-- Gain achievement through completing specified actions
-- Currently implemented (Welcome! achievement and login streak achievement)
+**Currently unlockable**
+
+- **Welcome!** — awarded on first visit
+- **3 / 5 / 10 Days Streak** — login streak milestones
+
+**Shown locked (coming soon)**
+
+- Capy Chatter, Master Scheduler, Flashcard master, DIY master — visible in the grid but not yet wired to unlock actions
 
 ---
 
@@ -119,7 +126,7 @@ Your **AI study co-pilot**.
 - Chats are **saved in MongoDB** (one document per conversation) so they survive refresh when signed in
 - **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages**
 - **New chat** starts with a **fresh memory context** (no carry-over from other threads)
-- Existing browser chats may migrate to the database on first signed-in load
+- Existing browser-only chats migrate to MongoDB automatically on first signed-in load (no manual reset needed)
 
 **Requirements**
 
@@ -148,7 +155,7 @@ Turn your **PDF notes** into study decks using Ollama or Gemini. Decks are **sav
 4. AI generates **front** (question/term) and **back** (answer) cards
 5. **Edit** cards — change text, add, or delete before studying
 6. **Study mode** — flip cards (click or Space), previous/next, shuffle; finish a deck to claim daily quest XP
-7. Decks auto-save to the database; older browser-only decks migrate on first signed-in load
+7. Decks auto-save to the database; older browser-only decks migrate on first signed-in load (no manual reset needed)
 
 **Supported PDFs**
 
@@ -281,13 +288,33 @@ Open **http://localhost:5173/**
 
 ---
 
+## Deployment (Vercel)
+
+The frontend is configured for Vercel via `@vercel/react-router` (`react/react-router.config.ts`).
+
+**Frontend (Vercel)**
+
+1. Connect the repo and set the root directory to `react/`
+2. Add environment variables from `react/.env.example` (Firebase keys + **`VITE_API_URL`**)
+3. Set `VITE_API_URL` to your **live backend URL** (not `localhost`) — e.g. `https://your-backend.example.com`
+
+**Backend**
+
+The Express API must be deployed separately (Railway, Render, Fly.io, etc.) with `MONGODB_URL` and either Ollama (local) or `GEMINI_API_KEY` (cloud).
+
+Both frontend and backend env vars are required for chatbot, flashcards, timetable, and profile data to work in production.
+
+---
+
 ## Troubleshooting
 
 | Issue | What to try |
 |--------|-------------|
 | Backend crashes on startup | Set a valid `MONGODB_URL` in `backend/.env` |
 | Login fails or blank page | Check `react/.env` has correct Firebase settings |
-| Timetable / decks / chats not saving | Backend running, signed in, `VITE_API_URL=http://localhost:5000` |
+| Timetable / decks / chats not saving | Backend running, signed in, `VITE_API_URL` points to your backend |
+| Flashcard or Chatbot **Application Error** on page load | Redeploy the latest frontend build; confirm `VITE_API_URL` is set in Vercel |
+| Vercel app loads but features fail | Set `VITE_API_URL` in Vercel to your deployed backend URL (not `localhost:5000`) |
 | Chatbot error (Ollama) | Ollama running, `mistral` in `ollama list`, use `node index.js` |
 | Chatbot error (Gemini) | Set `GEMINI_API_KEY` in `backend/.env`, use `npm run dev` |
 | Chatbot slow on long threads | Normal on first summarize pass |
@@ -317,7 +344,7 @@ Orb26-Capingo/
 
 **AI:** `POST /api/chat`, `POST /api/summarize`, `POST /api/flashcards/*`, `GET /api/health`
 
-**Profile:** `GET /api/profile/:uid`, `POST /api/profile/quest-action`, `POST /api/profile/update`
+**Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/unlock-achievements`, `POST /api/profile/update`
 
 **Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET|POST|PUT|DELETE /api/chats/:uid/...`
 

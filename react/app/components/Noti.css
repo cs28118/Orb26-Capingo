@@ -85,6 +85,21 @@
   color: #0369a1;
 }
 
+.toast-box.error {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.toast-box.error .toast-progress-bar {
+  background: #ef4444;
+}
+
+.toast-box.error .toast-content,
+.toast-box.error .toast-header strong,
+.toast-box.error .toast-close {
+  color: #b91c1c;
+}
+
 .toast-header strong {
   color: #452914;
   font-size: 0.85rem;

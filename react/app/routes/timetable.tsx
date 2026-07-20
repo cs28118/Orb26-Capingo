@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './timetable.css';
+import { triggerToast } from '../components/NotiHelper';
 type PriorityLevel = 'High' | 'Medium' | 'Low';
 
 const PRESET_SUBJECTS = [
@@ -35,10 +36,62 @@ interface Event {
   subject?: string;
 }
 
+//sliding timetable grid
+const FULL_TIMESLOTS: string[] = (() => {
+  const labels: string[] = [];
+  for (let h = 6; h < 24; h++) {
+    const period = h < 12 ? 'am' : 'pm';
+    const displayHour = h % 12 === 0 ? 12 : h % 12;
+    labels.push(`${displayHour}${period}`);
+  }
+  return labels;
+})();
+const VISIBLE_SLOTS = 7;
+
+//time system/helper in timetable
+const DAY_TO_INDEX: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function getMondayOfWeek(reference: Date): Date {
+  const d = new Date(reference);
+  const currentDay = d.getDay(); // 0 = Sun
+  const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  d.setDate(d.getDate() + diffToMonday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function getDateForDayThisWeek(dayName: string, reference: Date): Date {
+  const monday = getMondayOfWeek(reference);
+  const offsetFromMonday = DAY_TO_INDEX[dayName];
+  const result = new Date(monday);
+  result.setDate(monday.getDate() + offsetFromMonday);
+  return result;
+}
+function parseHourLabel(label: string): number {
+  const match = label.match(/^(\d+)(am|pm)$/i);
+  if (!match) return 0;
+  let hour = parseInt(match[1], 10);
+  const period = match[2].toLowerCase();
+  if (period === 'pm' && hour !== 12) hour += 12;
+  if (period === 'am' && hour === 12) hour = 0;
+  return hour;
+}
+function getSlotDateTime(dayName: string, hourLabel: string, reference: Date): Date {
+  const dayDate = getDateForDayThisWeek(dayName, reference);
+  dayDate.setHours(parseHourLabel(hourLabel), 0, 0, 0);
+  return dayDate;
+}
+function getDefaultDeadline(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+
+
 export default function Timetable() {
-  // Available days and timeslots for timetable grid
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const timeslots = ['8am', '9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm', '5pm', '6pm', '7pm', '8pm', '9pm'];
+  const timeslots = FULL_TIMESLOTS;
+  const [windowStart, setWindowStart] = useState(0);
+  const maxWindowStart = timeslots.length - VISIBLE_SLOTS;
+  const visibleTimeslots = timeslots.slice(windowStart, windowStart + VISIBLE_SLOTS);
 
   const [firebaseUser, setFirebaseUser] = useState<{ uid: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +129,15 @@ export default function Timetable() {
   const [breakStart, setBreakStart] = useState('');
   const [breakEnd, setBreakEnd] = useState('');
   const [enabledDays, setEnabledDays] = useState<string[]>([]);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const formattedTime = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
     const auth = getAuth();
@@ -86,12 +148,51 @@ export default function Timetable() {
     return () => unsubscribe();
   }, []);
 
+  const gridPositionRef = useRef<HTMLDivElement>(null);
+  const headerCellRefs = useRef<Map<string, HTMLTableCellElement>>(new Map());
+  const dayRowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+  const [nowLineStyle, setNowLineStyle] = useState<{ left: number; top: number; height: number } | null>(null);
+  const todayLabel = DAY_LABELS[(now.getDay() + 6) % 7];
+
+  useEffect(() => {
+    const computeNowLine = () => {
+      const container = gridPositionRef.current;
+      const todayRow = dayRowRefs.current.get(todayLabel);
+      const currentHour = now.getHours();
+      if (!container || !todayRow || currentHour < 6) {
+        setNowLineStyle(null);
+        return;
+      }
+      const hourLabel = FULL_TIMESLOTS[currentHour - 6];
+      const absIndex = timeslots.indexOf(hourLabel);
+      if (absIndex < windowStart || absIndex >= windowStart + VISIBLE_SLOTS) {
+        setNowLineStyle(null);
+        return;
+      }
+      const headerCell = headerCellRefs.current.get(hourLabel);
+      if (!headerCell) {
+        setNowLineStyle(null);
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const headerRect = headerCell.getBoundingClientRect();
+      const rowRect = todayRow.getBoundingClientRect();
+      const minutesFraction = now.getMinutes() / 60;
+      const left = (headerRect.left - containerRect.left) + headerRect.width * minutesFraction;
+      const top = rowRect.top - containerRect.top;
+      const height = rowRect.height;
+      setNowLineStyle({ left, top, height });
+    };
+    computeNowLine();
+    window.addEventListener('resize', computeNowLine);
+    return () => window.removeEventListener('resize', computeNowLine);
+  }, [now, windowStart, todayLabel, timeslots]);
+
   useEffect(() => {
     if (!firebaseUser) return;
 
-    setIsLoading(true);
-
     const fetchTimetable = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/api/timetable/${firebaseUser.uid}`
@@ -171,7 +272,7 @@ export default function Timetable() {
       hoursNeeded: timeNeeded === '' ? 1 : Number(timeNeeded),
       priority,
       allowSplit,
-      deadline: deadline || '2026-06-08',
+      deadline: deadline || getDefaultDeadline(),
       subject: subject.trim(),
     };
     setTodoList([...todoList, newTask]);
@@ -183,7 +284,7 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
   e.preventDefault();
 
   if (!selectedDay || !selectedStart || !timeNeeded) {
-    alert("Please fill in all fields before adding to the timetable!");
+    triggerToast('error', 'Missing fields', 'Please fill in all fields before adding to the timetable!');
     return;
   }
 
@@ -202,22 +303,27 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
 };
 
   // Feature 3: Auto-generate timetable
-  const handleAutoGenerateSubmit = (e: React.FormEvent) => {
+const handleAutoGenerateSubmit = (e: React.FormEvent) => {
   e.preventDefault();
 
   if (!selectedStart || !selectedEnd || !breakStart || !breakEnd || enabledDays.length === 0) {
-    alert("Please configure all settings (Days, Study Window, and Break Window) before generating!");
+    triggerToast('error', 'Missing settings', 'Please configure Days, Study Window and Break Window before generating!');
+    return;
+  }
+  if (todoList.length === 0) {
+    triggerToast('error', 'Nothing to schedule', 'Add at least one task to your to-do list first.');
     return;
   }
 
+  const referenceNow = new Date();
   const generatedEvents: Event[] = [];
+  const unscheduledTasks: string[] = [];
   let currentDayIdx = 0;
-  
   let currentHourIdx = timeslots.indexOf(selectedStart);
   const endHourIdx = timeslots.indexOf(selectedEnd);
-  const breakStartIdx = timeslots.indexOf(breakStart);
-  const breakEndIdx = timeslots.indexOf(breakEnd);
-
+  const hasBreak = breakStart !== 'NONE' && breakEnd !== 'NONE';
+  const breakStartIdx = hasBreak ? timeslots.indexOf(breakStart) : -1;
+  const breakEndIdx = hasBreak ? timeslots.indexOf(breakEnd) : -1;
   const sortedTasks = [...todoList].sort((a, b) => {
     const rank = { High: 3, Medium: 2, Low: 1 };
     return rank[b.priority] - rank[a.priority];
@@ -225,26 +331,29 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
 
   sortedTasks.forEach((task) => {
     let hoursRemaining = task.hoursNeeded;
-
+    const deadlineDate = task.deadline ? new Date(`${task.deadline}T23:59:59`) : null;
     while (hoursRemaining > 0 && currentDayIdx < enabledDays.length) {
       const activeDayStr = enabledDays[currentDayIdx];
-
       if (currentHourIdx >= endHourIdx) {
         currentHourIdx = timeslots.indexOf(selectedStart);
         currentDayIdx++;
         continue;
       }
-
-      if (currentHourIdx >= breakStartIdx && currentHourIdx < breakEndIdx) {
-        currentHourIdx = breakEndIdx; 
+      if (hasBreak && currentHourIdx >= breakStartIdx && currentHourIdx < breakEndIdx) {
+        currentHourIdx = breakEndIdx;
         continue;
       }
-
+      const slotDateTime = getSlotDateTime(activeDayStr, timeslots[currentHourIdx], referenceNow);
+      if (slotDateTime < referenceNow) {
+        currentHourIdx++;
+        continue;
+      }
+      if (deadlineDate && slotDateTime > deadlineDate) {
+        break;
+      }
       const blockDuration = task.allowSplit ? Math.min(hoursRemaining, 2) : hoursRemaining;
-
       const fitsBeforeEnd = currentHourIdx + blockDuration <= endHourIdx;
       const overlapsWithBreak = currentHourIdx < breakStartIdx && (currentHourIdx + blockDuration) > breakStartIdx;
-
       if (fitsBeforeEnd && !overlapsWithBreak) {
         generatedEvents.push({
           id: `auto_${task.id}_${Date.now()}_${hoursRemaining}`,
@@ -254,11 +363,10 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
           duration: blockDuration,
           subject: task.subject || '',
         });
-
         hoursRemaining -= blockDuration;
         currentHourIdx += blockDuration;
       } else {
-        if (currentHourIdx < breakStartIdx) {
+        if (hasBreak && currentHourIdx < breakStartIdx) {
           currentHourIdx = breakStartIdx;
         } else {
           currentHourIdx = timeslots.indexOf(selectedStart);
@@ -266,10 +374,18 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
         }
       }
     }
+    if (hoursRemaining > 0) {
+      unscheduledTasks.push(task.title);
+    }
   });
-
   setEventsList(generatedEvents);
   closeModal();
+
+  if (generatedEvents.length === 0) {
+    triggerToast('error', "Couldn't generate timetable", 'No available slots were found before your deadlines. Try widening your study window.');
+  } else if (unscheduledTasks.length > 0) {
+    triggerToast('error', 'Some tasks didn\'t fit', `Couldn't fully schedule: ${unscheduledTasks.join(', ')}.`);
+  }
 };
 
   const toggleDayPill = (day: string) => {
@@ -381,53 +497,111 @@ const handleRemoveEvent = (eventId: string) => {
 
       {/* timetable */}
       <section className="timetable-grid-canvas">
+        <div className="timetable-grid-toolbar">
+          <div className="timeline-slider-control">
+            <button type="button" className="slider-step-btn" onClick={() => setWindowStart(w => Math.max(0, w - 1))} disabled={windowStart === 0}>‹</button>
+            <input
+              type="range"
+              min={0}
+              max={maxWindowStart}
+              value={windowStart}
+              onChange={e => setWindowStart(Number(e.target.value))}
+              className="timeline-slider"
+            />
+            <button type="button" className="slider-step-btn" onClick={() => setWindowStart(w => Math.min(maxWindowStart, w + 1))} disabled={windowStart === maxWindowStart}>›</button>
+            <span className="timeline-range-label">{visibleTimeslots[0]} – {visibleTimeslots[visibleTimeslots.length - 1]}</span>
+          </div>
+          <div className="timetable-clock">{formattedDate} · {formattedTime}</div>
+        </div>
+        <div className="timetable-grid-position-wrapper" ref={gridPositionRef}>
         <table className="timetable-matrix-table">
           <thead>
-            <tr>
-              <th className="column-label-all-day">All day</th>
-              {timeslots.map(time => <th key={time} className="column-time-header">{time}</th>)}
-            </tr>
+          <tr>
+            <th className="column-label-all-day">All day</th>
+            {visibleTimeslots.map(time => (
+              <th
+                key={time}
+                className="column-time-header"
+                ref={el => {
+                  if (el) headerCellRefs.current.set(time, el);
+                  else headerCellRefs.current.delete(time);
+                }}
+              >
+                {time}
+              </th>
+            ))}
+          </tr>
           </thead>
           <tbody>
-            {days.map(day => (
-              <tr key={day} className="matrix-row-container">
+            {DAY_LABELS.map(day => (
+              <tr
+                key={day}
+                className="matrix-row-container"
+                ref={el => {
+                  if (el) dayRowRefs.current.set(day, el);
+                  else dayRowRefs.current.delete(day);
+                }}
+              >
                 <td className="matrix-day-label"><strong>{day}</strong></td>
-                {timeslots.map((time, index) => {
-                  const activeEvent = eventsList.find(e => e.day === day && e.startHour === time);
-                  
+                {visibleTimeslots.map((time) => {
+                  const absIndex = timeslots.indexOf(time);
+                  const windowEndIdx = windowStart + VISIBLE_SLOTS;
+                  const startingEvent = eventsList.find(e => e.day === day && e.startHour === time);
+                  const continuingEvent = !startingEvent && absIndex === windowStart
+                    ? eventsList.find(e => {
+                        if (e.day !== day) return false;
+                        const startIdx = timeslots.indexOf(e.startHour);
+                        return startIdx < windowStart && startIdx + e.duration > windowStart;
+                      })
+                    : undefined;
+                  const activeEvent = startingEvent || continuingEvent;
                   if (activeEvent) {
                     const startIdx = timeslots.indexOf(activeEvent.startHour);
-                    const maxPossibleDuration = timeslots.length - startIdx;
-                    const dynamicColSpan = Math.min(activeEvent.duration, maxPossibleDuration);
+                    const naturalEndIdx = startIdx + activeEvent.duration;
+                    const renderFromIdx = Math.max(startIdx, windowStart);
+                    const visibleEndIdx = Math.min(naturalEndIdx, windowEndIdx);
+                    const dynamicColSpan = Math.max(1, visibleEndIdx - renderFromIdx);
                     return (
                       <td key={time} colSpan={dynamicColSpan} className="matrix-slotted-block-cell">
-                        <div className="slotted-event-card">
+                        <div
+                          className="slotted-event-card"
+                          onClick={() => openEditEventModal(activeEvent)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openEditEventModal(activeEvent);
+                            }
+                          }}
+                        >
                           {activeEvent.subject && (
                             <span className="subject-badge subject-badge-event">{activeEvent.subject}</span>
                           )}
                           <p className="event-txt">{activeEvent.title}</p>
-                          <span className="event-details-trigger" onClick={() => openEditEventModal(activeEvent)}>Details</span>
                         </div>
                       </td>
                     );
                   }
-
                   const isCellHidden = eventsList.some(e => {
                     if (e.day !== day) return false;
-                    const matchStartIdx = timeslots.indexOf(e.startHour);
-                    const maxPossibleDuration = timeslots.length - matchStartIdx;
-                    const safeDuration = Math.min(e.duration, maxPossibleDuration);
-                    return index > matchStartIdx && index < matchStartIdx + safeDuration;
+                    const startIdx = timeslots.indexOf(e.startHour);
+                    return absIndex > startIdx && absIndex < startIdx + e.duration;
                   });
-
                   if (isCellHidden) return null;
-
                   return <td key={time} className="matrix-unallocated-empty-cell" />;
                 })}
               </tr>
             ))}
           </tbody>
         </table>
+            {nowLineStyle && (
+            <div
+              className="current-time-line"
+              style={{ left: nowLineStyle.left, top: nowLineStyle.top, height: nowLineStyle.height }}
+            />
+          )}
+        </div>
       </section>
 
       {activeModal !== 'NONE' && (
@@ -493,7 +667,7 @@ const handleRemoveEvent = (eventId: string) => {
                 <div className="form-fields">
                   <label>Available days:</label>
                   <div className="pill-selection-flex-row">
-                    {days.map(d => (
+                    {DAY_LABELS.map(d => (
                       <button type="button" key={d} className={`selection-pill-btn ${enabledDays.includes(d) ? 'active' : ''}`} onClick={() => toggleDayPill(d)}>
                         {d}
                       </button>
@@ -517,15 +691,41 @@ const handleRemoveEvent = (eventId: string) => {
                 <div className="form-split-row-box">
                   <div className="form-fields flex-fill">
                     <label>Break Start:</label>
-                    <select value={breakStart} onChange={e => setBreakStart(e.target.value)} required>
+                    <select
+                      value={breakStart}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setBreakStart(val);
+                        if (val === 'NONE') {
+                          setBreakEnd('NONE');
+                        } else if (breakEnd === 'NONE') {
+                          setBreakEnd('');
+                        }
+                      }}
+                      required
+                    >
                       <option value="" disabled>Select break start...</option>
+                      <option value="NONE">None (no break)</option>
                       {timeslots.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="form-fields flex-fill">
                     <label>Break End:</label>
-                    <select value={breakEnd} onChange={e => setBreakEnd(e.target.value)} required>
+                    <select
+                      value={breakEnd}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setBreakEnd(val);
+                        if (val === 'NONE') {
+                          setBreakStart('NONE');
+                        } else if (breakStart === 'NONE') {
+                          setBreakStart('');
+                        }
+                      }}
+                      required
+                    >
                       <option value="" disabled>Select break end...</option>
+                      <option value="NONE">None (no break)</option>
                       {timeslots.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
@@ -560,7 +760,7 @@ const handleRemoveEvent = (eventId: string) => {
                     <label>Day:</label>
                     <select value={selectedDay} onChange={e => setSelectedDay(e.target.value)} required>
                       <option value="" disabled>Select day...</option>
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {DAY_LABELS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div className="form-fields flex-fill">
@@ -669,7 +869,7 @@ const handleRemoveEvent = (eventId: string) => {
                   <div className="form-fields flex-fill">
                     <label>Day:</label>
                     <select value={selectedDay} onChange={e => setSelectedDay(e.target.value)} required>
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {DAY_LABELS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div className="form-fields flex-fill">

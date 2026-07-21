@@ -11,6 +11,7 @@ export default [
     route("chatbot", "routes/chatbot.tsx"),
     route("flashcard", "routes/flashcard.tsx"),
     route("collaboration", "routes/collaboration.tsx"),
+    route("space", "routes/space.tsx"),
     route("achievements", "routes/achievements.tsx"),
   ]),
 ] satisfies RouteConfig;

@@ -3,12 +3,18 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { PDFParse } = require('pdf-parse');
+const http = require('node:http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
+const registerChatSocket = require('./models/chatSocket');
 const app = express();
 connectDB();
 const PORT = process.env.PORT || 5000;
+const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 const MAX_PDF_BYTES = Number(process.env.MAX_PDF_MB || 10) * 1024 * 1024;
@@ -450,7 +456,17 @@ app.use((err, req, res, next) => {
   return next();
 });
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+  },
+});
+registerChatSocket(io);
+
 app.listen(PORT, () => {
   console.log(`Server is on port ${PORT}`);
   console.log(`Ollama proxy: ${OLLAMA_BASE_URL} (model: ${OLLAMA_MODEL})`);
+  console.log('Socket.IO ready for real-time chat');
 });

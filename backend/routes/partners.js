@@ -183,14 +183,21 @@ router.post('/request', async (req, res) => {
       await existing.save();
       partnership = existing;
     } else {
-      partnership = await StudyPartnership.create({
-        userA,
-        userB,
-        requestedBy: requesterUid,
-        status: 'pending',
-        createdAt: now,
-        updatedAt: now,
-      });
+      try {
+        partnership = await StudyPartnership.create({
+          userA,
+          userB,
+          requestedBy: requesterUid,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (createErr) {
+        if (createErr.code === 11000) {
+          return res.status(409).json({ error: 'A partner request already exists' });
+        }
+        throw createErr;
+      }
     }
 
     res.status(201).json({
@@ -216,6 +223,9 @@ router.post('/accept', async (req, res) => {
     }
     if (partnership.status !== 'pending') {
       return res.status(400).json({ error: 'Request is not pending' });
+    }
+    if (partnership.requestedBy === uid) {
+      return res.status(400).json({ error: 'You cannot accept your own request' });
     }
 
     const otherUid = partnership.userA === uid ? partnership.userB : partnership.userA;

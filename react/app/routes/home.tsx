@@ -93,6 +93,10 @@ export default function Home() {
                     <NavLink to="/home/collaboration" className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}>
                         Study Partners
                     </NavLink>
+
+                    <NavLink to="/home/space" className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}>
+                        Collaboration Space
+                    </NavLink>
                 </nav>
 
                 <div className="user-profile-logout">

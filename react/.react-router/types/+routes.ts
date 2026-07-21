@@ -29,6 +29,9 @@ type Pages = {
   "/home/collaboration": {
     params: {};
   };
+  "/home/space": {
+    params: {};
+  };
   "/home/achievements": {
     params: {};
   };
@@ -37,7 +40,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/home" | "/home/timetable" | "/home/chatbot" | "/home/flashcard" | "/home/collaboration" | "/home/achievements";
+    page: "/" | "/home" | "/home/timetable" | "/home/chatbot" | "/home/flashcard" | "/home/collaboration" | "/home/space" | "/home/achievements";
   };
   "loginAuth/login.tsx": {
     id: "loginAuth/login";
@@ -45,7 +48,7 @@ type RouteFiles = {
   };
   "routes/home.tsx": {
     id: "routes/home";
-    page: "/home" | "/home/timetable" | "/home/chatbot" | "/home/flashcard" | "/home/collaboration" | "/home/achievements";
+    page: "/home" | "/home/timetable" | "/home/chatbot" | "/home/flashcard" | "/home/collaboration" | "/home/space" | "/home/achievements";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -67,6 +70,10 @@ type RouteFiles = {
     id: "routes/collaboration";
     page: "/home/collaboration";
   };
+  "routes/space.tsx": {
+    id: "routes/space";
+    page: "/home/space";
+  };
   "routes/achievements.tsx": {
     id: "routes/achievements";
     page: "/home/achievements";
@@ -82,5 +89,6 @@ type RouteModules = {
   "routes/chatbot": typeof import("./app/routes/chatbot.tsx");
   "routes/flashcard": typeof import("./app/routes/flashcard.tsx");
   "routes/collaboration": typeof import("./app/routes/collaboration.tsx");
+  "routes/space": typeof import("./app/routes/space.tsx");
   "routes/achievements": typeof import("./app/routes/achievements.tsx");
 };

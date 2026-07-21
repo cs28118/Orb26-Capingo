@@ -3,12 +3,20 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { PDFParse } = require('pdf-parse');
+const http = require('node:http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
+const registerChatSocket = require('./models/chatSocket');
+const Announcement = require('./models/announcement');
+const Resource = require('./models/resource');
 const app = express();
 connectDB();
 const PORT = process.env.PORT || 5000;
+const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'; 
 const MAX_PDF_BYTES = Number(process.env.MAX_PDF_MB || 10) * 1024 * 1024;
@@ -304,11 +312,13 @@ const timetableRoutes = require('./routes/timetable');
 const deckRoutes = require('./routes/decks');
 const chatRoutes = require('./routes/chats');
 const partnerRoutes = require('./routes/partners');
+const roomRoutes = require('./routes/rooms');
 app.use('/api/profile', profileRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/decks', deckRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/rooms', roomRoutes);
 
 app.get('/', (req, res) => {
   res.send('Capingo is running');
@@ -454,7 +464,17 @@ app.use((err, req, res, next) => {
   return next();
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+  },
+});
+registerChatSocket(io);
+
+server.listen(PORT, () => {
   console.log(`Server is on port ${PORT}`);
   console.log(`Google Gemini API (model: ${GEMINI_MODEL})`);
+  console.log('Socket.IO ready for real-time chat');
 });

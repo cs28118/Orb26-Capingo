@@ -252,9 +252,23 @@ router.post('/accept', async (req, res) => {
     partnership.updatedAt = new Date();
     await partnership.save();
 
+    let achievementChanged = false;
+    if (!myProfile.connectedComponent) {
+      myProfile.connectedComponent = true;
+      achievementChanged = true;
+    }
+    if (!partnerProfile.connectedComponent) {
+      partnerProfile.connectedComponent = true;
+      achievementChanged = true;
+    }
+    if (achievementChanged) {
+      await Promise.all([myProfile.save(), partnerProfile.save()]);
+    }
+
     res.json({
       partnership,
       partner: toPublicProfile(partnerProfile),
+      profile: myProfile,
     });
   } catch (err) {
     console.error('Error accepting partner request:', err);

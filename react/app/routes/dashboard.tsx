@@ -54,6 +54,24 @@ export default function Dashboard() {
         if (!response.ok) throw new Error('Failed to fetch user data');
         const data = await response.json();
         setUserData(data);
+
+        //check achievements when login (*special case for study partner achievement)
+        const newlyUnlockedIds = checkAndUnlockAchievements(data);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds })
+          });
+          setUserData({
+            ...data,
+            achievements: [
+              ...(data.achievements || []),
+              ...newlyUnlockedIds.map((id: number) => ({ id }))
+            ]
+          });
+        }
+
       } catch (err : unknown) {
         if (err instanceof Error) {
           setError(err.message);

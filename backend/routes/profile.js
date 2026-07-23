@@ -58,12 +58,18 @@ router.get('/:uid', async (req, res) => {
       } else {
         profile.streakDays = 1;
       }
+      if ((profile.questsToday || 0) >= 3) {
+        profile.questStreakDays = isYesterday(lastLogin) ? (profile.questStreakDays || 0) + 1 : 1;
+      } else {
+        profile.questStreakDays = 0;
+      }
       profile.dailyProgress = {
         streakClaimed: 0,
         decksReviewed: 0,
         chatMessages: 0,
         decksCreated: 0
       };
+      profile.questsToday = 0;
       profile.lastLoginDate = new Date();
       await profile.save();
     }
@@ -143,12 +149,19 @@ router.post('/quest-action', async (req, res) => {
       profile[achievementField] = true;
       achievementChanged = true;
     }
+    if (actionType === 'createDeck') {
+      profile.totalDecksCreated = (profile.totalDecksCreated || 0) + 1;
+      achievementChanged = true;
+    }
 
     let xpToAdd = 0;
     let actionName = quest.name;
     if (profile.dailyProgress[quest.key] < quest.limit) {
       profile.dailyProgress[quest.key] += 1;
       xpToAdd = quest.xp;
+      profile.questsCompleted = (profile.questsCompleted || 0) + 1;
+      profile.questsToday = (profile.questsToday || 0) + 1;
+      achievementChanged = true;
     }
     //action capped
     if (xpToAdd === 0) {

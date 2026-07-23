@@ -42,4 +42,9 @@ export interface userData {
   masterScheduler?: boolean;
   autoAllocating?: boolean;
   instantiatedIndentity?: boolean;
+  connectedComponent?: boolean;
+  decksCreated?: number;
+  questsCompleted?: number;
+  questsToday?: number;
+  questsCompleteStreak?: number;
 }

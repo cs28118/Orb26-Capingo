@@ -157,9 +157,8 @@ export default function Flashcards() {
   useEffect(() => {
     if (!firebaseUser) return;
 
-    setIsLoadingDecks(true);
-
     const fetchDecks = async () => {
+      setIsLoadingDecks(true);
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}`

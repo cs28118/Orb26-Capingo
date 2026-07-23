@@ -286,6 +286,8 @@ const awardChatbotXP = async (uid: string) => {
     }
 };
 
+const getTimestamp = () => Date.now();
+
 export default function Chatbot() {
   const [chats, setChats] = useState<Chat[]>(() => {
     const stored = loadChatsFromStorage();
@@ -322,9 +324,8 @@ export default function Chatbot() {
   useEffect(() => {
     if (!firebaseUser) return;
 
-    setIsLoadingChats(true);
-
     const loadChats = async () => {
+      setIsLoadingChats(true);
       try {
         let summaries = await fetchChatList(firebaseUser.uid);
 
@@ -485,10 +486,10 @@ export default function Chatbot() {
     }
 
     const userMessage: Message = {
-      id: `msg_${Date.now()}`,
+      id: `msg_${getTimestamp()}`,
       role: 'user',
       content: trimmed,
-      createdAt: Date.now(),
+      createdAt: getTimestamp(),
     };
 
     const chatBefore = currentChats.find((c) => c.id === chatId)!;
@@ -499,7 +500,7 @@ export default function Chatbot() {
       ...chatBefore,
       title,
       messages: [...chatBefore.messages, userMessage],
-      updatedAt: Date.now(),
+      updatedAt: getTimestamp(),
     };
 
     setChats((prev) => {
@@ -521,8 +522,6 @@ export default function Chatbot() {
       );
 
       if (memorySummary !== withUser.memorySummary || memoryUpToIndex !== (withUser.memoryUpToIndex ?? 0)) {
-        withUser.memorySummary = memorySummary;
-        withUser.memoryUpToIndex = memoryUpToIndex;
         updateChat(chatId, (c) => ({
           ...c,
           memorySummary,
@@ -546,10 +545,10 @@ export default function Chatbot() {
       }
 
       const assistantMessage: Message = {
-        id: `msg_${Date.now()}`,
+        id: `msg_${getTimestamp()}`,
         role: 'assistant',
         content: data.reply || '(No response)',
-        createdAt: Date.now(),
+        createdAt: getTimestamp(),
       };
 
       chatToPersist = {
@@ -557,7 +556,7 @@ export default function Chatbot() {
         memorySummary,
         memoryUpToIndex,
         messages: [...withUser.messages, assistantMessage],
-        updatedAt: Date.now(),
+        updatedAt: getTimestamp(),
       };
 
       updateChat(chatId, () => chatToPersist);

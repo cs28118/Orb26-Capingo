@@ -208,7 +208,7 @@ export default function Collaboration() {
         return;
       }
 
-      if (preview.uid === firebaseUser?.uid) {
+      if (preview && preview.uid === firebaseUser?.uid) {
         setLookupError('That is your own code.');
         return;
       }

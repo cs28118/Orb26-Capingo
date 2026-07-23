@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router';
 import './collaboration.css';
+import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 type Suggestion = {
   uid: string;
@@ -207,7 +208,7 @@ export default function Collaboration() {
         return;
       }
 
-      if (preview.uid === firebaseUser?.uid) {
+      if (preview && preview.uid === firebaseUser?.uid) {
         setLookupError('That is your own code.');
         return;
       }
@@ -256,6 +257,17 @@ export default function Collaboration() {
       if (!res.ok) throw new Error(data.error || 'Accept failed');
       setSuccess('Partner request accepted!');
       await loadData(firebaseUser.uid);
+      
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${getApiBase()}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
+          });
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not accept request');
     }

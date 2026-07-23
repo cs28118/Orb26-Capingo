@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './timetable.css';
 import { triggerToast } from '../components/NotiHelper';
 type PriorityLevel = 'High' | 'Medium' | 'Low';
+import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 const PRESET_SUBJECTS = [
   'Maths',
@@ -279,6 +280,31 @@ export default function Timetable() {
     closeModal();
   };
 
+  const markTimetableAchievement = async (type: 'manual' | 'auto') => {
+    if (!firebaseUser) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/timetable-achievement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: firebaseUser.uid, type }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to record timetable milestone', err);
+    }
+  };
+
   // Feature 2: Manually add event to timetable grid
 const handleManualAddSubmit = (e: React.FormEvent) => {
   e.preventDefault();
@@ -300,6 +326,7 @@ const handleManualAddSubmit = (e: React.FormEvent) => {
 
   setEventsList([...eventsList, newEvent]);
   closeModal();
+  markTimetableAchievement('manual');
 };
 
   // Feature 3: Auto-generate timetable
@@ -383,8 +410,11 @@ const handleAutoGenerateSubmit = (e: React.FormEvent) => {
 
   if (generatedEvents.length === 0) {
     triggerToast('error', "Couldn't generate timetable", 'No available slots were found before your deadlines. Try widening your study window.');
-  } else if (unscheduledTasks.length > 0) {
-    triggerToast('error', 'Some tasks didn\'t fit', `Couldn't fully schedule: ${unscheduledTasks.join(', ')}.`);
+  } else {
+    markTimetableAchievement('auto');
+    if (unscheduledTasks.length > 0) {
+      triggerToast('error', 'Some tasks didn\'t fit', `Couldn't fully schedule: ${unscheduledTasks.join(', ')}.`);
+    }
   }
 };
 

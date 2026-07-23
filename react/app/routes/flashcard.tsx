@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './flashcard.css';
 import { triggerToast } from '../components/NotiHelper';
 import type { User } from 'firebase/auth';
+import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 const STORAGE_KEY = 'capingo-flashcard-decks';
 
@@ -156,9 +157,8 @@ export default function Flashcards() {
   useEffect(() => {
     if (!firebaseUser) return;
 
-    setIsLoadingDecks(true);
-
     const fetchDecks = async () => {
+      setIsLoadingDecks(true);
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}`
@@ -257,6 +257,16 @@ export default function Flashcards() {
       }
       if (data.leveledUp) {
         triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
+      }
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, newAchievementIds: newlyUnlockedIds })
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to award XP", err);

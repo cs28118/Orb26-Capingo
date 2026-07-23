@@ -37,7 +37,7 @@ router.get('/:uid', async (req, res) => {
         manualSubjects: [],
         openToPartners: true,
         achievements: [
-          { id: 1, title: 'Welcome!', icon: '/assets/welcome-badge.png' }
+          { id: 1 }
         ],
         quests: [
           { id: 1, action: 'Login Streak', reward: 10 },
@@ -58,12 +58,18 @@ router.get('/:uid', async (req, res) => {
       } else {
         profile.streakDays = 1;
       }
+      if ((profile.questsToday || 0) >= 3) {
+        profile.questStreakDays = isYesterday(lastLogin) ? (profile.questStreakDays || 0) + 1 : 1;
+      } else {
+        profile.questStreakDays = 0;
+      }
       profile.dailyProgress = {
         streakClaimed: 0,
         decksReviewed: 0,
         chatMessages: 0,
         decksCreated: 0
       };
+      profile.questsToday = 0;
       profile.lastLoginDate = new Date();
       await profile.save();
     }
@@ -80,6 +86,11 @@ const QUEST_DICT = {
   reviewDeck:  { xp: 60, limit: 2, key: 'decksReviewed', name: 'Flashcard Deck Reviewed' },
   chatMessage: { xp: 50, limit: 5, key: 'chatMessages', name: 'Chat Message Sent' },
   createDeck:  { xp: 30, limit: 1, key: 'decksCreated', name: 'Flashcard Deck Created' }
+};
+
+const ACHIEVEMENT_FIELDS = {
+  chatMessage: 'helloCapy',
+  createDeck: 'deckBuilder',
 };
 
 //login streak
@@ -126,17 +137,35 @@ router.post('/quest-action', async (req, res) => {
     const { uid, actionType } = req.body;
     const profile = await UserProfile.findOne({ firebaseUid: uid });
     if (!profile) return res.status(404).json({ error: 'User not found' });
-    //quests
+
+    //quests detection
     const quest = QUEST_DICT[actionType];
     if (!quest) return res.status(400).json({ error: 'Invalid action' });
+    
+    //achievement detection
+    let achievementChanged = false;
+    const achievementField = ACHIEVEMENT_FIELDS[actionType];
+    if (achievementField && !profile[achievementField]) {
+      profile[achievementField] = true;
+      achievementChanged = true;
+    }
+    if (actionType === 'createDeck') {
+      profile.totalDecksCreated = (profile.totalDecksCreated || 0) + 1;
+      achievementChanged = true;
+    }
+
     let xpToAdd = 0;
     let actionName = quest.name;
     if (profile.dailyProgress[quest.key] < quest.limit) {
       profile.dailyProgress[quest.key] += 1;
       xpToAdd = quest.xp;
+      profile.questsCompleted = (profile.questsCompleted || 0) + 1;
+      profile.questsToday = (profile.questsToday || 0) + 1;
+      achievementChanged = true;
     }
-    //capped
+    //action capped
     if (xpToAdd === 0) {
+      if (achievementChanged) await profile.save();
       return res.json({ 
         success: true, 
         leveledUp: false, 
@@ -174,11 +203,37 @@ router.post('/update', async (req, res) => {
     if (!profile) return res.status(404).json({ error: 'User not found' });
     if (newUsername) profile.username = newUsername;
     if (newProfilePic) profile.profilePic = newProfilePic;
+    if (!profile.instantiatedIndentity) profile.instantiatedIndentity = true;
     await profile.save();
     res.json({ success: true, profile });
   } catch (err) {
     console.error('Error updating profile:', err);
     res.status(500).json({ error: 'Server error updating profile' });
+  }
+});
+
+const TIMETABLE_ACHIEVEMENT_FIELDS = {
+  manual: 'masterScheduler',
+  auto: 'autoAllocating',
+};
+
+router.post('/timetable-achievement', async (req, res) => {
+  try {
+    const { uid, type } = req.body ?? {};
+    const field = TIMETABLE_ACHIEVEMENT_FIELDS[type];
+    if (!uid || !field) {
+      return res.status(400).json({ error: 'uid and a valid type ("manual" or "auto") are required' });
+    }
+    const profile = await UserProfile.findOne({ firebaseUid: uid });
+    if (!profile) return res.status(404).json({ error: 'User not found' });
+    if (!profile[field]) {
+      profile[field] = true;
+      await profile.save();
+    }
+    res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Error recording timetable achievement:', err);
+    res.status(500).json({ error: 'Server error while recording achievement' });
   }
 });
 

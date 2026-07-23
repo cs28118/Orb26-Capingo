@@ -126,6 +126,19 @@ export default function Dashboard() {
       const data = await response.json();
       setUserData(data.profile);
       setIsEditing(false);
+      const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+      if (newlyUnlockedIds.length > 0) {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds })
+        });
+        data.profile.achievements = [
+          ...(data.profile.achievements || []),
+          ...newlyUnlockedIds.map((id: number) => ({ id }))
+        ];
+        setUserData(data.profile);
+      }
     } catch (err) {
       console.error("Error saving profile:", err);
       alert("Failed to update profile. Please try again.");

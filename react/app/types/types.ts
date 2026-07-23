@@ -37,4 +37,9 @@ export interface userData {
   manualSubjects: string[];
   partnerCode: string;
   openToPartners?: boolean;
+  helloCapy?: boolean;
+  deckBuilder?: boolean;
+  masterScheduler?: boolean;
+  autoAllocating?: boolean;
+  instantiatedIndentity?: boolean;
 }

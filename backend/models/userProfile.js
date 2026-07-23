@@ -31,6 +31,13 @@ const UserProfileSchema = new mongoose.Schema({
   manualSubjects: { type: [String], default: [] },
   partnerCode: { type: String, unique: true, sparse: true },
   openToPartners: { type: Boolean, default: true },
+
+  //achievements (except streaks)
+  helloCapy: { type: Boolean, default: false },
+  deckBuilder: { type: Boolean, default: false },
+  masterScheduler: { type: Boolean, default: false },
+  autoAllocating: { type: Boolean, default: false },
+  instantiatedIndentity: { type: Boolean, default: false },
 });
 
 UserProfileSchema.index({ subjects: 1 });

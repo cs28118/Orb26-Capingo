@@ -3,6 +3,7 @@ import './chatbot.css';
 import { triggerToast } from '../components/NotiHelper';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
+import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 const STORAGE_KEY = 'capingo-chats';
 
@@ -269,6 +270,16 @@ const awardChatbotXP = async (uid: string) => {
       }
       if (data.leveledUp) {
         triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
+      }
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, newAchievementIds: newlyUnlockedIds })
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to award Chat XP", err);

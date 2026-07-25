@@ -217,6 +217,16 @@ async function fetchFullChat(uid: string, chatId: string): Promise<Chat> {
   return res.json();
 }
 
+async function deleteChatOnServer(uid: string, chatId: string): Promise<void> {
+  const res = await fetch(`${getApiBase()}/api/chats/${uid}/${chatId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete chat');
+  }
+}
+
 async function persistChat(uid: string, chat: Chat): Promise<void> {
   const res = await fetch(`${getApiBase()}/api/chats/${uid}/${chat.id}`, {
     method: 'PUT',
@@ -456,6 +466,54 @@ export default function Chatbot() {
     }
   };
 
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const startRenaming = (chat: Chat) => {
+    setRenamingChatId(chat.id);
+    setRenameValue(chat.title);
+  };
+
+  const commitRename = async (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    const trimmed = renameValue.trim();
+    setRenamingChatId(null);
+    if (!chat || !trimmed || trimmed === chat.title) return;
+
+    const updated: Chat = { ...chat, title: trimmed, updatedAt: getTimestamp() };
+    setChats((prev) => prev.map((c) => (c.id === chatId ? updated : c)));
+
+    if (!firebaseUser) return;
+    try {
+      await persistChat(firebaseUser.uid, updated);
+      setSaveError('');
+    } catch (err) {
+      console.error('Error renaming chat:', err);
+      setSaveError('Could not save the new chat name.');
+    }
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return;
+    if (!window.confirm(`Delete "${chat.title}"? This can't be undone.`)) return;
+
+    const remaining = chats.filter((c) => c.id !== chatId);
+    setChats(remaining);
+    if (activeChatId === chatId) {
+      setActiveChatId(remaining[0]?.id ?? null);
+    }
+
+    if (!firebaseUser) return;
+    try {
+      await deleteChatOnServer(firebaseUser.uid, chatId);
+      setSaveError('');
+    } catch (err) {
+      console.error('Error deleting chat:', err);
+      setSaveError('Could not delete this chat.');
+    }
+  };
+
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
@@ -615,9 +673,6 @@ export default function Chatbot() {
           <button type="button" className="chat-subheader-btn" onClick={handleNewChat} title="New chat">
             +
           </button>
-          <button type="button" className="chat-subheader-new" onClick={handleNewChat}>
-            New chat
-          </button>
           <button
             type="button"
             className="chat-subheader-btn"
@@ -632,27 +687,67 @@ export default function Chatbot() {
           <p className="chat-recent-heading">Recent</p>
           <div className="chat-recent-list">
             {sortedChats.length === 0 ? (
-              <button type="button" className="chat-recent-item active" onClick={handleNewChat}>
-                <span className="chat-recent-item-icon">💬</span>
-                <div className="chat-recent-item-body">
-                  <span className="chat-recent-item-title">New chat</span>
-                  <span className="chat-recent-item-time">Today</span>
-                </div>
-              </button>
-            ) : (
-              sortedChats.map((chat) => (
-                <button
-                  key={chat.id}
-                  type="button"
-                  className={`chat-recent-item ${chat.id === activeChatId ? 'active' : ''}`}
-                  onClick={() => handleSelectChat(chat.id)}
-                >
-                  <span className="chat-recent-item-icon">{chat.pinned ? '📌' : '💬'}</span>
+              <div className="chat-recent-item active">
+                <button type="button" className="chat-recent-item-main" onClick={handleNewChat}>
+                  <span className="chat-recent-item-icon">💬</span>
                   <div className="chat-recent-item-body">
-                    <span className="chat-recent-item-title">{chat.title}</span>
-                    <span className="chat-recent-item-time">{formatRelativeTime(chat.updatedAt)}</span>
+                    <span className="chat-recent-item-title">New chat</span>
+                    <span className="chat-recent-item-time">Today</span>
                   </div>
                 </button>
+              </div>
+            ) : (
+              sortedChats.map((chat) => (
+                <div
+                  key={chat.id}
+                  className={`chat-recent-item ${chat.id === activeChatId ? 'active' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="chat-recent-item-main"
+                    onClick={() => handleSelectChat(chat.id)}
+                  >
+                    <span className="chat-recent-item-icon">{chat.pinned ? '📌' : '💬'}</span>
+                    <div className="chat-recent-item-body">
+                      {renamingChatId === chat.id ? (
+                        <input
+                          type="text"
+                          className="chat-recent-item-rename-input"
+                          value={renameValue}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => commitRename(chat.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename(chat.id);
+                            if (e.key === 'Escape') setRenamingChatId(null);
+                          }}
+                        />
+                      ) : (
+                        <span className="chat-recent-item-title">{chat.title}</span>
+                      )}
+                      <span className="chat-recent-item-time">{formatRelativeTime(chat.updatedAt)}</span>
+                    </div>
+                  </button>
+                  <div className="chat-recent-item-actions">
+                    <button
+                      type="button"
+                      className="chat-recent-item-action-btn"
+                      title="Rename"
+                      onClick={(e) => { e.stopPropagation(); startRenaming(chat); }}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-recent-item-action-btn"
+                      title="Delete"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.id); }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
               ))
             )}
           </div>

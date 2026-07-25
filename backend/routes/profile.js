@@ -59,9 +59,9 @@ router.get('/:uid', async (req, res) => {
         profile.streakDays = 1;
       }
       if ((profile.questsToday || 0) >= 3) {
-        profile.questStreakDays = isYesterday(lastLogin) ? (profile.questStreakDays || 0) + 1 : 1;
+        profile.questsCompleteStreak = isYesterday(lastLogin) ? (profile.questsCompleteStreak || 0) + 1 : 1;
       } else {
-        profile.questStreakDays = 0;
+        profile.questsCompleteStreak = 0;
       }
       profile.dailyProgress = {
         streakClaimed: 0,
@@ -150,7 +150,7 @@ router.post('/quest-action', async (req, res) => {
       achievementChanged = true;
     }
     if (actionType === 'createDeck') {
-      profile.totalDecksCreated = (profile.totalDecksCreated || 0) + 1;
+      profile.decksCreated = (profile.decksCreated || 0) + 1;
       achievementChanged = true;
     }
 

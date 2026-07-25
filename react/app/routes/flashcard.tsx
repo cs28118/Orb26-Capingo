@@ -423,6 +423,19 @@ export default function Flashcards() {
     }
   };
 
+  const handleCreateManualDeck = () => {
+    const title = deckTitle.trim() || 'Untitled deck';
+    const deck = createDeck(title, [createCard()]);
+    setDecks((prev) => [deck, ...prev]);
+    setActiveDeckId(deck.id);
+    setMode('edit');
+    setParsedPdf(null);
+    setDeckTitle('');
+    if (firebaseUser) {
+      awardFlashcardXP(firebaseUser.uid, 'createDeck');
+    }
+  };
+
   const handleUpdateCard = (deckId: string, cardId: string, field: 'front' | 'back', value: string) => {
     updateDeck(deckId, (d) => ({
       ...d,
@@ -493,12 +506,31 @@ export default function Flashcards() {
     if (mode === 'upload') {
       return (
         <div className="flashcard-upload-panel">
-          <h2 style={{ marginTop: 0 }}>Upload PDF notes</h2>
-          <p style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-            Capingo AI will read your notes and create flashcards using Ollama on your computer.
-          </p>
+          <h2 style={{ marginTop: 0 }}>Create Flashcards</h2>
 
           {error && <div className="flashcard-error">{error}</div>}
+
+          <div style={{ padding: '14px', border: '1px solid #e5e7eb', borderRadius: 10, marginBottom: '14px' }}>
+            <label htmlFor="manual-deck-title">Create a deck manually</label>
+            <input
+              id="manual-deck-title"
+              type="text"
+              value={deckTitle}
+              onChange={(e) => setDeckTitle(e.target.value)}
+              placeholder="e.g. English Vocabulary"
+              style={{ display: 'block', width: '100%', margin: '6px 0 10px' }}
+            />
+            <button
+              type="button"
+              className="flashcard-btn flashcard-btn-secondary"
+              onClick={handleCreateManualDeck}
+            >
+              Create empty deck
+            </button>
+          </div>
+
+          <p> -- or upload a PDF instead --</p>
+          <p style={{fontSize: '0.9rem' }}>Capingo will read your notes and create flashcards. </p>
 
           <label htmlFor="pdf-upload">PDF file</label>
           <input
@@ -576,9 +608,9 @@ export default function Flashcards() {
       return (
         <div className="flashcard-empty">
           <h2>Create your first deck</h2>
-          <p>Upload PDF notes and Capingo AI will turn them into flashcards.</p>
+          <p>Create manually or upload PDF notes and Capingo will turn them into flashcards.</p>
           <button type="button" className="flashcard-btn flashcard-btn-primary" onClick={handleNewDeck}>
-            Upload PDF
+            Create now
           </button>
         </div>
       );
@@ -722,7 +754,7 @@ export default function Flashcards() {
             <button type="button" className="flashcard-deck-item active" onClick={handleNewDeck}>
               <span>📄</span>
               <div className="flashcard-deck-item-body">
-                <span className="flashcard-deck-item-title">Upload PDF</span>
+                <span className="flashcard-deck-item-title">Untitled Deck</span>
                 <span className="flashcard-deck-item-meta">Create your first deck</span>
               </div>
             </button>

@@ -395,3 +395,10 @@
   color: #856404;
   font-size: 0.9rem;
 }
+
+.small-text {
+  text-align: 'center';
+  color: '#9ca3af';
+  font-size: '0.8rem';
+  margin: '4px 0 14px';
+}

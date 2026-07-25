@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './timetable.css';
 import { triggerToast } from '../components/NotiHelper';
@@ -14,6 +14,23 @@ const PRESET_SUBJECTS = [
   'English',
   'Computer Science',
 ];
+
+type PositionedEvent = {
+  event: Event;
+  startIdx: number;
+  endIdx: number;
+  laneIndex: number;
+  laneCount: number;
+};
+
+type EventBox = {
+  event: Event;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  laneCount: number;
+};
 
 interface Todo {
   id: string;
@@ -60,6 +77,7 @@ function getMondayOfWeek(reference: Date): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+
 function getDateForDayThisWeek(dayName: string, reference: Date): Date {
   const monday = getMondayOfWeek(reference);
   const offsetFromMonday = DAY_TO_INDEX[dayName];
@@ -67,6 +85,7 @@ function getDateForDayThisWeek(dayName: string, reference: Date): Date {
   result.setDate(monday.getDate() + offsetFromMonday);
   return result;
 }
+
 function parseHourLabel(label: string): number {
   const match = label.match(/^(\d+)(am|pm)$/i);
   if (!match) return 0;
@@ -76,17 +95,84 @@ function parseHourLabel(label: string): number {
   if (period === 'am' && hour === 12) hour = 0;
   return hour;
 }
+
 function getSlotDateTime(dayName: string, hourLabel: string, reference: Date): Date {
   const dayDate = getDateForDayThisWeek(dayName, reference);
   dayDate.setHours(parseHourLabel(hourLabel), 0, 0, 0);
   return dayDate;
 }
+
 function getDefaultDeadline(): string {
   const d = new Date();
   d.setDate(d.getDate() + 7);
   return d.toISOString().slice(0, 10);
 }
 
+//helper calculate blocks
+function computeDayEventLayout(dayEvents: Event[], timeslots: string[]): PositionedEvent[] {
+  const items = dayEvents
+    .map((e) => ({
+      event: e,
+      startIdx: timeslots.indexOf(e.startHour),
+      endIdx: timeslots.indexOf(e.startHour) + e.duration,
+    }))
+    .filter((item) => item.startIdx !== -1)
+    .sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+
+  const clusters: (typeof items)[] = [];
+  let currentCluster: typeof items = [];
+  let clusterEnd = -Infinity;
+
+  for (const item of items) {
+    if (currentCluster.length === 0 || item.startIdx < clusterEnd) {
+      currentCluster.push(item);
+      clusterEnd = Math.max(clusterEnd, item.endIdx);
+    } else {
+      clusters.push(currentCluster);
+      currentCluster = [item];
+      clusterEnd = item.endIdx;
+    }
+  }
+  if (currentCluster.length > 0) clusters.push(currentCluster);
+
+  const result: PositionedEvent[] = [];
+  for (const cluster of clusters) {
+    const laneEndTimes: number[] = [];
+    const laneAssignments: number[] = [];
+
+    for (const item of cluster) {
+      let placedLane = -1;
+      for (let lane = 0; lane < laneEndTimes.length; lane++) {
+        if (laneEndTimes[lane] <= item.startIdx) {
+          placedLane = lane;
+          break;
+        }
+      }
+      if (placedLane === -1) {
+        placedLane = laneEndTimes.length;
+        laneEndTimes.push(item.endIdx);
+      } else {
+        laneEndTimes[placedLane] = item.endIdx;
+      }
+      laneAssignments.push(placedLane);
+    }
+
+    const laneCount = laneEndTimes.length;
+    cluster.forEach((item, i) => {
+      result.push({
+        event: item.event,
+        startIdx: item.startIdx,
+        endIdx: item.endIdx,
+        laneIndex: laneAssignments[i],
+        laneCount,
+      });
+    });
+  }
+  return result;
+}
+
+
+const getTimestamp = () => Date.now();
 
 export default function Timetable() {
   const timeslots = FULL_TIMESLOTS;
@@ -114,6 +200,10 @@ export default function Timetable() {
   const [allowSplit, setAllowSplit] = useState(false);
   const [deadline, setDeadline] = useState('');
   const [subject, setSubject] = useState('');
+
+  // For drag task feature
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<{ day: string; time: string } | null>(null);
 
   const knownSubjects = useMemo(() => {
     const seen = new Map<string, string>();
@@ -188,6 +278,112 @@ export default function Timetable() {
     window.addEventListener('resize', computeNowLine);
     return () => window.removeEventListener('resize', computeNowLine);
   }, [now, windowStart, todayLabel, timeslots]);
+
+  const [eventBoxes, setEventBoxes] = useState<EventBox[]>([]);
+
+  useEffect(() => {
+    const computeEventBoxes = () => {
+      const container = gridPositionRef.current;
+      if (!container) {
+        setEventBoxes([]);
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const windowEndIdx = windowStart + VISIBLE_SLOTS;
+      const boxes: EventBox[] = [];
+
+      DAY_LABELS.forEach((day) => {
+        const dayRow = dayRowRefs.current.get(day);
+        if (!dayRow) return;
+        const rowRect = dayRow.getBoundingClientRect();
+        const rowTop = rowRect.top - containerRect.top;
+        const rowHeight = rowRect.height;
+
+        const dayEvents = eventsList.filter((e) => e.day === day);
+        const layout = computeDayEventLayout(dayEvents, timeslots);
+
+        layout.forEach(({ event, startIdx, endIdx, laneIndex, laneCount }) => {
+          if (endIdx <= windowStart || startIdx >= windowEndIdx) return;
+
+          const clippedStartIdx = Math.max(startIdx, windowStart);
+          const clippedEndIdx = Math.min(endIdx, windowEndIdx);
+
+          const startHeaderCell = headerCellRefs.current.get(timeslots[clippedStartIdx]);
+          if (!startHeaderCell) return;
+          const startRect = startHeaderCell.getBoundingClientRect();
+          const left = startRect.left - containerRect.left;
+
+          let right: number;
+          const endHeaderCell = clippedEndIdx < windowEndIdx ? headerCellRefs.current.get(timeslots[clippedEndIdx]) : undefined;
+          if (endHeaderCell) {
+            const endRect = endHeaderCell.getBoundingClientRect();
+            right = endRect.left - containerRect.left;
+          } else {
+            const lastHeaderCell = headerCellRefs.current.get(timeslots[windowEndIdx - 1]);
+            if (!lastHeaderCell) return;
+            const lastRect = lastHeaderCell.getBoundingClientRect();
+            right = (lastRect.left - containerRect.left) + lastRect.width;
+          }
+
+          const width = Math.max(0, right - left);
+          const laneHeight = rowHeight / laneCount;
+          const gap = laneCount > 1 ? 2 : 0;
+
+          boxes.push({
+            event,
+            left,
+            top: rowTop + laneIndex * laneHeight + gap / 2,
+            width,
+            height: laneHeight - gap,
+            laneCount,
+          });
+        });
+      });
+
+      setEventBoxes(boxes);
+    };
+
+    computeEventBoxes();
+    window.addEventListener('resize', computeEventBoxes);
+    return () => window.removeEventListener('resize', computeEventBoxes);
+  }, [eventsList, windowStart, timeslots]);
+
+  const markTimetableAchievement = useCallback( async (type: 'manual' | 'auto' | 'drag' | 'stack') => {
+    if (!firebaseUser) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/timetable-achievement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: firebaseUser.uid, type }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to record timetable milestone', err);
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const hasOverlap = DAY_LABELS.some((day) => {
+      const dayEvents = eventsList.filter((e) => e.day === day);
+      const layout = computeDayEventLayout(dayEvents, timeslots);
+      return layout.some((item) => item.laneCount > 1);
+    });
+    if (hasOverlap) {
+      markTimetableAchievement('stack');
+    }
+  }, [eventsList, timeslots, isLoading, markTimetableAchievement]);
 
   useEffect(() => {
     if (!firebaseUser) return;
@@ -278,31 +474,6 @@ export default function Timetable() {
     };
     setTodoList([...todoList, newTask]);
     closeModal();
-  };
-
-  const markTimetableAchievement = async (type: 'manual' | 'auto') => {
-    if (!firebaseUser) return;
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/timetable-achievement`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: firebaseUser.uid, type }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to record timetable milestone', err);
-    }
   };
 
   // Feature 2: Manually add event to timetable grid
@@ -475,6 +646,27 @@ const handleRemoveEvent = (eventId: string) => {
   closeModal();
 };
 
+const handleDropTaskOnGrid = (day: string, time: string, e: React.DragEvent) => {
+  e.preventDefault();
+  setDragOverCell(null);
+  const taskId = e.dataTransfer.getData('text/plain');
+  const task = todoList.find(t => t.id === taskId);
+  if (!task) return;
+
+  const newEvent: Event = {
+    id: `manual_${getTimestamp()}`,
+    title: task.title,
+    remarks: task.remarks || '',
+    day,
+    startHour: time,
+    duration: task.hoursNeeded,
+    subject: task.subject || '',
+  };
+  setEventsList(prev => [...prev, newEvent]);
+  triggerToast('quest', 'Scheduled', `Added "${task.title}" to your timetable.`);
+  markTimetableAchievement('drag');
+};
+
   if (isLoading) {
     return (
       <div className="timetable-wrapper">
@@ -497,7 +689,17 @@ const handleRemoveEvent = (eventId: string) => {
               <div className="empty-todo-list">No tasks left! Type below to create one.</div>
             ) : (
               todoList.map((task) => (
-                <div key={task.id} className="todo-item">
+                <div
+                  key={task.id}
+                  className={`todo-item ${draggingTaskId === task.id ? 'dragging' : ''}`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', task.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    setDraggingTaskId(task.id);
+                  }}
+                  onDragEnd={() => setDraggingTaskId(null)}
+                >
                   <div className="todo-title-row-container">
                   <div className="todo-title">
                     {task.subject && <span className="subject-badge">{task.subject}</span>}
@@ -573,54 +775,20 @@ const handleRemoveEvent = (eventId: string) => {
                 }}
               >
                 <td className="matrix-day-label"><strong>{day}</strong></td>
-                {visibleTimeslots.map((time) => {
-                  const absIndex = timeslots.indexOf(time);
-                  const windowEndIdx = windowStart + VISIBLE_SLOTS;
-                  const startingEvent = eventsList.find(e => e.day === day && e.startHour === time);
-                  const continuingEvent = !startingEvent && absIndex === windowStart
-                    ? eventsList.find(e => {
-                        if (e.day !== day) return false;
-                        const startIdx = timeslots.indexOf(e.startHour);
-                        return startIdx < windowStart && startIdx + e.duration > windowStart;
-                      })
-                    : undefined;
-                  const activeEvent = startingEvent || continuingEvent;
-                  if (activeEvent) {
-                    const startIdx = timeslots.indexOf(activeEvent.startHour);
-                    const naturalEndIdx = startIdx + activeEvent.duration;
-                    const renderFromIdx = Math.max(startIdx, windowStart);
-                    const visibleEndIdx = Math.min(naturalEndIdx, windowEndIdx);
-                    const dynamicColSpan = Math.max(1, visibleEndIdx - renderFromIdx);
-                    return (
-                      <td key={time} colSpan={dynamicColSpan} className="matrix-slotted-block-cell">
-                        <div
-                          className="slotted-event-card"
-                          onClick={() => openEditEventModal(activeEvent)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              openEditEventModal(activeEvent);
-                            }
-                          }}
-                        >
-                          {activeEvent.subject && (
-                            <span className="subject-badge subject-badge-event">{activeEvent.subject}</span>
-                          )}
-                          <p className="event-txt">{activeEvent.title}</p>
-                        </div>
-                      </td>
-                    );
-                  }
-                  const isCellHidden = eventsList.some(e => {
-                    if (e.day !== day) return false;
-                    const startIdx = timeslots.indexOf(e.startHour);
-                    return absIndex > startIdx && absIndex < startIdx + e.duration;
-                  });
-                  if (isCellHidden) return null;
-                  return <td key={time} className="matrix-unallocated-empty-cell" />;
-                })}
+                  {visibleTimeslots.map((time) => (
+                    <td
+                    key={time}
+                    className={`matrix-unallocated-empty-cell ${dragOverCell?.day === day && dragOverCell?.time === time ? 'drag-over' : ''}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverCell?.day !== day || dragOverCell?.time !== time) {
+                        setDragOverCell({ day, time });
+                      }
+                    }}
+                    onDragLeave={() => setDragOverCell(null)}
+                    onDrop={(e) => handleDropTaskOnGrid(day, time, e)}
+                  />
+                  ))}
               </tr>
             ))}
           </tbody>
@@ -631,6 +799,27 @@ const handleRemoveEvent = (eventId: string) => {
               style={{ left: nowLineStyle.left, top: nowLineStyle.top, height: nowLineStyle.height }}
             />
           )}
+          {eventBoxes.map(({ event, left, top, width, height, laneCount }) => (
+            <div
+              key={event.id}
+              className={`slotted-event-card slotted-event-card-positioned ${laneCount > 1 ? 'compact' : ''}`}
+              style={{ left, top, width, height }}
+              onClick={() => openEditEventModal(event)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openEditEventModal(event);
+                }
+              }}
+            >
+              {event.subject && (
+                <span className="subject-badge subject-badge-event">{event.subject}</span>
+              )}
+              <p className="event-txt">{event.title}</p>
+            </div>
+          ))}
         </div>
       </section>
 

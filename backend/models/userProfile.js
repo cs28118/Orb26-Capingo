@@ -40,6 +40,8 @@ const UserProfileSchema = new mongoose.Schema({
   instantiatedIndentity: { type: Boolean, default: false },
   connectedComponent: { type: Boolean, default: false },
   decksCreated: { type: Number, default: 0 },
+  draggedTask: { type: Boolean, default: false },
+  multitask: { type: Boolean, default: false },
   questsCompleted: { type: Number, default: 0 }, //overall quests completed
   questsToday: { type: Number, default: 0 }, //quests completed today
   questsCompleteStreak: { type: Number, default: 0 }, //consecutive days of completing quests

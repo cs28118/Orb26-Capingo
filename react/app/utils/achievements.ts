@@ -33,7 +33,7 @@ export const allAchievements: AchievementDef[] = [
   },
   { id: 4,
     title: 'Master Scheduler',
-    message: 'You explored the timetable feature!',
+    message: 'You manually explored the timetable feature!',
     icon: '/assets/achievements/schedule.png',
     lockedIcon: '/assets/achievements/schedule-locked.png',
     condition: (user) => !!user.masterScheduler
@@ -68,7 +68,7 @@ export const allAchievements: AchievementDef[] = [
   },
   { id: 9,
     title: 'Auto Allocating...',
-    message: 'To be determined',
+    message: 'You tried the auto-generate feature in the timetable!',
     icon: '/assets/achievements/auto.png',
     lockedIcon: '/assets/achievements/auto-locked.png',
     condition: (user) => !!user.autoAllocating
@@ -116,24 +116,24 @@ export const allAchievements: AchievementDef[] = [
     condition: (user) => (user.decksCreated || 0) > 5
   },
   { id: 16,
-    title: 'Placeholder',
-    message: 'To be determined',
-    icon: '/assets/achievements/unlocked-placeholder.png',
-    lockedIcon: '/assets/achievements/locked-placeholder.png',
-    condition: () => false
+    title: 'One small step? One giant leap!',
+    message: 'You reached level 2!',
+    icon: '/assets/achievements/level-2.png',
+    lockedIcon: '/assets/achievements/level-2-locked.png',
+    condition: (user) => user.level >= 2
   },
   { id: 17,
-    title: 'Placeholder',
-    message: 'To be determined',
-    icon: '/assets/achievements/unlocked-placeholder.png',
-    lockedIcon: '/assets/achievements/locked-placeholder.png',
-    condition: () => false
+    title: 'Multitasker',
+    message: 'You put multiple tasks in the same timeslot?',
+    icon: '/assets/achievements/multitask.png',
+    lockedIcon: '/assets/achievements/multitask-locked.png',
+    condition: (user) => !!user.multitask
   },
   { id: 18,
-    title: 'Placeholder',
-    message: 'To be determined',
-    icon: '/assets/achievements/unlocked-placeholder.png',
-    lockedIcon: '/assets/achievements/locked-placeholder.png',
-    condition: () => false
+    title: 'Drag it!',
+    message: 'You dragged a task to timetable!',
+    icon: '/assets/achievements/drag.png',
+    lockedIcon: '/assets/achievements/drag-locked.png',
+    condition: (user) => !!user.draggedTask
   }
 ];

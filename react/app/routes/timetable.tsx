@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './timetable.css';
 import { triggerToast } from '../components/NotiHelper';
@@ -172,6 +172,8 @@ function computeDayEventLayout(dayEvents: Event[], timeslots: string[]): Positio
 }
 
 
+const getTimestamp = () => Date.now();
+
 export default function Timetable() {
   const timeslots = FULL_TIMESLOTS;
   const [windowStart, setWindowStart] = useState(0);
@@ -198,6 +200,10 @@ export default function Timetable() {
   const [allowSplit, setAllowSplit] = useState(false);
   const [deadline, setDeadline] = useState('');
   const [subject, setSubject] = useState('');
+
+  // For drag task feature
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<{ day: string; time: string } | null>(null);
 
   const knownSubjects = useMemo(() => {
     const seen = new Map<string, string>();
@@ -342,6 +348,43 @@ export default function Timetable() {
     return () => window.removeEventListener('resize', computeEventBoxes);
   }, [eventsList, windowStart, timeslots]);
 
+  const markTimetableAchievement = useCallback( async (type: 'manual' | 'auto' | 'drag' | 'stack') => {
+    if (!firebaseUser) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/timetable-achievement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: firebaseUser.uid, type }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.profile) {
+        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+        if (newlyUnlockedIds.length > 0) {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to record timetable milestone', err);
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const hasOverlap = DAY_LABELS.some((day) => {
+      const dayEvents = eventsList.filter((e) => e.day === day);
+      const layout = computeDayEventLayout(dayEvents, timeslots);
+      return layout.some((item) => item.laneCount > 1);
+    });
+    if (hasOverlap) {
+      markTimetableAchievement('stack');
+    }
+  }, [eventsList, timeslots, isLoading, markTimetableAchievement]);
+
   useEffect(() => {
     if (!firebaseUser) return;
 
@@ -431,31 +474,6 @@ export default function Timetable() {
     };
     setTodoList([...todoList, newTask]);
     closeModal();
-  };
-
-  const markTimetableAchievement = async (type: 'manual' | 'auto') => {
-    if (!firebaseUser) return;
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/timetable-achievement`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: firebaseUser.uid, type }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to record timetable milestone', err);
-    }
   };
 
   // Feature 2: Manually add event to timetable grid
@@ -628,6 +646,27 @@ const handleRemoveEvent = (eventId: string) => {
   closeModal();
 };
 
+const handleDropTaskOnGrid = (day: string, time: string, e: React.DragEvent) => {
+  e.preventDefault();
+  setDragOverCell(null);
+  const taskId = e.dataTransfer.getData('text/plain');
+  const task = todoList.find(t => t.id === taskId);
+  if (!task) return;
+
+  const newEvent: Event = {
+    id: `manual_${getTimestamp()}`,
+    title: task.title,
+    remarks: task.remarks || '',
+    day,
+    startHour: time,
+    duration: task.hoursNeeded,
+    subject: task.subject || '',
+  };
+  setEventsList(prev => [...prev, newEvent]);
+  triggerToast('quest', 'Scheduled', `Added "${task.title}" to your timetable.`);
+  markTimetableAchievement('drag');
+};
+
   if (isLoading) {
     return (
       <div className="timetable-wrapper">
@@ -650,7 +689,17 @@ const handleRemoveEvent = (eventId: string) => {
               <div className="empty-todo-list">No tasks left! Type below to create one.</div>
             ) : (
               todoList.map((task) => (
-                <div key={task.id} className="todo-item">
+                <div
+                  key={task.id}
+                  className={`todo-item ${draggingTaskId === task.id ? 'dragging' : ''}`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', task.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    setDraggingTaskId(task.id);
+                  }}
+                  onDragEnd={() => setDraggingTaskId(null)}
+                >
                   <div className="todo-title-row-container">
                   <div className="todo-title">
                     {task.subject && <span className="subject-badge">{task.subject}</span>}
@@ -727,7 +776,18 @@ const handleRemoveEvent = (eventId: string) => {
               >
                 <td className="matrix-day-label"><strong>{day}</strong></td>
                   {visibleTimeslots.map((time) => (
-                    <td key={time} className="matrix-unallocated-empty-cell" />
+                    <td
+                    key={time}
+                    className={`matrix-unallocated-empty-cell ${dragOverCell?.day === day && dragOverCell?.time === time ? 'drag-over' : ''}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverCell?.day !== day || dragOverCell?.time !== time) {
+                        setDragOverCell({ day, time });
+                      }
+                    }}
+                    onDragLeave={() => setDragOverCell(null)}
+                    onDrop={(e) => handleDropTaskOnGrid(day, time, e)}
+                  />
                   ))}
               </tr>
             ))}

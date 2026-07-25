@@ -215,6 +215,8 @@ router.post('/update', async (req, res) => {
 const TIMETABLE_ACHIEVEMENT_FIELDS = {
   manual: 'masterScheduler',
   auto: 'autoAllocating',
+  drag: 'draggedTask',
+  stack: 'multitask',
 };
 
 router.post('/timetable-achievement', async (req, res) => {

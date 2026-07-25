@@ -47,4 +47,6 @@ export interface userData {
   questsCompleted?: number;
   questsToday?: number;
   questsCompleteStreak?: number;
+  draggedTask?: boolean;
+  multitask?: boolean;
 }

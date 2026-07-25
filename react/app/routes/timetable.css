@@ -595,3 +595,18 @@
   margin-bottom: 4px;
   width: fit-content;
 }
+
+/* dragging */
+.todo-item {
+  cursor: grab;
+}
+
+.todo-item.dragging {
+  opacity: 0.4;
+}
+
+.matrix-unallocated-empty-cell.drag-over {
+  background-color: rgba(121, 159, 196, 0.25);
+  outline: 2px dashed #799fc4;
+  outline-offset: -2px;
+}

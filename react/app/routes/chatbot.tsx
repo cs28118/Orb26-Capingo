@@ -533,6 +533,7 @@ export default function Chatbot() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          uid: firebaseUser?.uid,
           memorySummary,
           messages: getRecentMessages(withUser.messages),
         }),

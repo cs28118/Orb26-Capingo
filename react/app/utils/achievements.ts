@@ -33,7 +33,7 @@ export const allAchievements: AchievementDef[] = [
   },
   { id: 4,
     title: 'Master Scheduler',
-    message: 'You explored the timetable feature!',
+    message: 'You manually explored the timetable feature!',
     icon: '/assets/achievements/schedule.png',
     lockedIcon: '/assets/achievements/schedule-locked.png',
     condition: (user) => !!user.masterScheduler
@@ -68,7 +68,7 @@ export const allAchievements: AchievementDef[] = [
   },
   { id: 9,
     title: 'Auto Allocating...',
-    message: 'To be determined',
+    message: 'You tried the auto-generate feature in the timetable!',
     icon: '/assets/achievements/auto.png',
     lockedIcon: '/assets/achievements/auto-locked.png',
     condition: (user) => !!user.autoAllocating

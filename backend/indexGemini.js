@@ -11,6 +11,9 @@ const connectDB = require('./config/db');
 const registerChatSocket = require('./models/chatSocket');
 const Announcement = require('./models/announcement');
 const Resource = require('./models/resource');
+const UserProfile = require('./models/userProfile');
+const Timetable = require('./models/timetable');
+const FlashcardDecks = require('./models/flashcardDeck');
 const app = express();
 connectDB();
 const PORT = process.env.PORT || 5000;
@@ -24,7 +27,8 @@ const FLASHCARD_CHUNK_SIZE = 8000;
 
 const SYSTEM_PROMPT = `You are Capingo AI, a friendly study co-pilot represented by a capybara mascot.
 Help students learn clearly and patiently. Use markdown when helpful: **bold**, numbered lists, and short paragraphs.
-Keep answers focused and educational. If asked to quiz the student, ask 2-3 questions.`;
+Keep answers focused and educational. If asked to quiz the student, ask 2-3 questions.
+When a message includes a "Student's current progress" system note, use it naturally to personalize your reply — don't just repeat the raw data back as a list unless they specifically ask for a summary.`;
 
 const SUMMARIZE_PROMPT = `You compress study-chat history into a concise memory note for future replies.
 Keep: topics covered, key facts taught, quiz progress, student mistakes, and open questions.
@@ -39,6 +43,83 @@ Each flashcard must:
 
 Focus on exam-relevant facts, definitions, processes, and cause-effect relationships.
 Avoid trivial headers, page numbers, and duplicate cards.`;
+
+const PROGRESS_KEYWORDS = [ 'level', 'xp', 'exp', 'streak', 'achievement', 'badge', 'unlock',
+                            'quest', 'daily quest','timetable', 'schedule', 'learn', 'study session',
+                            'to-do', 'todo', 'to do', 'task list', 'task', 'flashcard', 'flash card',
+                            'deck', 'cards', 'progress', 'my stats', 'how am i doing', 'on track',
+                            'streak', ];
+
+function isProgressRelevant(text) {
+  const lower = String(text || '').toLowerCase();
+  return PROGRESS_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+const ACHIEVEMENT_CATALOG = {
+  1: { title: 'Welcome!', message: 'You visited Capingo!' },
+  2: { title: '3 Days Streak', message: 'You logged in 3 days in a row!' },
+  3: { title: 'Hello Capy!', message: 'You chatted with the chatbot for the first time!' },
+  4: { title: 'Master Scheduler', message: 'You manually explored the timetable feature!' },
+  5: { title: 'Deck Builder', message: 'You explored the flashcard feature!' },
+  6: { title: 'Instantiated Identity', message: 'You updated your profile card!' },
+  7: { title: '5 Days Streak', message: 'You logged in 5 days in a row!' },
+  8: { title: '10 Days Streak', message: 'You logged in 10 days in a row!' },
+  9: { title: 'Auto Allocating...', message: 'You tried the auto-generate feature in the timetable!' },
+  10: { title: 'Climbing up...', message: 'You reached level 5!' },
+  11: { title: 'Reached the peak!', message: 'You reached level 10!' },
+  12: { title: 'Killer Quest I', message: 'Incredible! You completed all quest 3 days in a row!' },
+  13: { title: 'Killer Quest II', message: 'You completed 10 quests in total!' },
+  14: { title: 'Connected component', message: 'You added your first study partner!' },
+  15: { title: 'Data miner', message: 'You created 5 flashcard decks!' },
+};
+
+async function buildUserContext(uid) {
+  try {
+    const [profile, timetable, flashcards] = await Promise.all([
+      UserProfile.findOne({ firebaseUid: uid }),
+      Timetable.findOne({ firebaseUid: uid }),
+      FlashcardDecks.findOne({ firebaseUid: uid }),
+    ]);
+    if (!profile) return '';
+
+    const dp = profile.dailyProgress || {};
+
+    const unlockedIds = new Set((profile.achievements || []).map((a) => a.id));
+    const achievementTitles = [...unlockedIds].map((id) => ACHIEVEMENT_CATALOG[id]?.title).filter(Boolean);
+
+    const catalogSummary = Object.entries(ACHIEVEMENT_CATALOG)
+      .map(([id, def]) => `${def.title} [${unlockedIds.has(Number(id)) ? 'UNLOCKED' : 'LOCKED — to unlock: ' + def.message}]`)
+      .join('; ');
+
+    const todosSummary = (timetable?.todos || [])
+      .slice(0, 10)
+      .map((t) => `${t.title} (priority: ${t.priority}, due ${t.deadline || 'no deadline'}, ${t.hoursNeeded}h needed)`)
+      .join('; ') || 'no to-do items';
+
+    const eventsSummary = (timetable?.events || [])
+      .slice(0, 15)
+      .map((e) => `${e.day} ${e.startHour} - ${e.title}${e.subject ? ` [${e.subject}]` : ''}`)
+      .join('; ') || 'no scheduled events';
+
+    const decksSummary = (flashcards?.decks || [])
+      .slice(0, 10)
+      .map((d) => `${d.title} (${d.cards?.length || 0} cards)`)
+      .join('; ') || 'no flashcard decks yet';
+
+    return `Student's current progress on Capingo (reference naturally where relevant — don't just recite this list back unless asked for a summary):
+- Level ${profile.level}, ${profile.currentXp}/${profile.xpToNextLevel} XP, ${profile.streakDays}-day login streak
+- Achievements unlocked (${achievementTitles.length}): ${achievementTitles.join(', ') || 'none yet'}
+- Full achievement catalog with lock status: ${catalogSummary}
+- Total quests completed: ${profile.questsCompleted || 0}, current quest streak: ${profile.questsCompleteStreak || 0} days
+- Today's quest progress: login streak ${dp.streakClaimed >= 1 ? 'claimed' : 'not yet claimed'}, ${dp.decksReviewed || 0}/2 decks reviewed, ${dp.chatMessages || 0}/5 chats sent, ${dp.decksCreated || 0}/1 decks created
+- To-do list: ${todosSummary}
+- Timetable events: ${eventsSummary}
+- Flashcard decks: ${decksSummary}`;
+  } catch (err) {
+    console.error('Error building user context:', err);
+    return '';
+  }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -361,13 +442,21 @@ app.post('/api/summarize', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, memorySummary } = req.body;
+  const { messages, memorySummary, uid } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'Request body must include a non-empty messages array.' });
   }
 
   const geminiMessages = [{ role: 'system', content: SYSTEM_PROMPT }];
+
+  const latestUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+  if (uid && latestUserMessage && isProgressRelevant(latestUserMessage.content)) {
+    const progressContext = await buildUserContext(uid);
+    if (progressContext) {
+      geminiMessages.push({ role: 'system', content: progressContext });
+    }
+  }
 
   if (memorySummary && String(memorySummary).trim()) {
     geminiMessages.push({

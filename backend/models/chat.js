@@ -23,4 +23,4 @@ const ChatSchema = new mongoose.Schema({
 ChatSchema.index({ firebaseUid: 1, chatId: 1 }, { unique: true });
 ChatSchema.index({ firebaseUid: 1, updatedAt: -1 });
 
-module.exports = mongoose.model('Chat', ChatSchema);
+module.exports = mongoose.models.Chat || mongoose.model('Chat', ChatSchema);

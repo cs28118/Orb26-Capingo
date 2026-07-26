@@ -4,11 +4,22 @@ import './flashcard.css';
 import { triggerToast } from '../components/NotiHelper';
 import type { User } from 'firebase/auth';
 import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import {
+  buildStudyQueue,
+  countDue,
+  isNew,
+  reviewCard,
+  withSrsDefaults,
+  type SrsRating,
+} from '../utils/sm2';
 
 const STORAGE_KEY = 'capingo-flashcard-decks';
+const NEW_CARD_LIMIT = 20;
+const XP_AFTER_REVIEWS = 10;
 
 type Difficulty = 'basic' | 'standard' | 'advanced';
 type ViewMode = 'library' | 'upload' | 'edit' | 'study';
+type StudyKind = 'srs' | 'cram';
 
 type Flashcard = {
   id: string;
@@ -16,6 +27,12 @@ type Flashcard = {
   back: string;
   createdAt: number;
   updatedAt?: number;
+  ease?: number;
+  interval?: number;
+  repetitions?: number;
+  dueAt?: number;
+  lastReviewedAt?: number;
+  lapses?: number;
 };
 
 type FlashcardDeck = {
@@ -46,12 +63,27 @@ function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+function normalizeCard(card: Flashcard): Flashcard {
+  return withSrsDefaults(card);
+}
+
+function normalizeDeck(deck: FlashcardDeck): FlashcardDeck {
+  return {
+    ...deck,
+    cards: (deck.cards || []).map(normalizeCard),
+  };
+}
+
+function normalizeDecks(decks: FlashcardDeck[]): FlashcardDeck[] {
+  return decks.map(normalizeDeck);
+}
+
 function loadDecksFromStorage(): FlashcardDeck[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as FlashcardDeck[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? normalizeDecks(parsed) : [];
   } catch {
     return [];
   }
@@ -62,12 +94,12 @@ function saveDecksToStorage(decks: FlashcardDeck[]) {
 }
 
 function createCard(front = '', back = ''): Flashcard {
-  return {
+  return withSrsDefaults({
     id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     front,
     back,
     createdAt: Date.now(),
-  };
+  });
 }
 
 function createDeck(title: string, cards: Flashcard[], meta?: Partial<FlashcardDeck>): FlashcardDeck {
@@ -75,7 +107,7 @@ function createDeck(title: string, cards: Flashcard[], meta?: Partial<FlashcardD
   return {
     id: `deck_${now}`,
     title,
-    cards,
+    cards: cards.map(normalizeCard),
     createdAt: now,
     updatedAt: now,
     ...meta,
@@ -141,7 +173,10 @@ export default function Flashcards() {
 
   const [studyIndex, setStudyIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [shuffledIds, setShuffledIds] = useState<string[] | null>(null);
+  const [studyQueue, setStudyQueue] = useState<string[]>([]);
+  const [studyKind, setStudyKind] = useState<StudyKind>('srs');
+  const [sessionReviews, setSessionReviews] = useState(0);
+  const xpAwardedRef = useRef(false);
 
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
 
@@ -165,7 +200,7 @@ export default function Flashcards() {
         );
         if (!response.ok) throw new Error('Failed to load decks');
         const data = await response.json();
-        let loaded: FlashcardDeck[] = data.decks ?? [];
+        let loaded: FlashcardDeck[] = normalizeDecks(data.decks ?? []);
 
         if (loaded.length === 0) {
           const localDecks = loadDecksFromStorage();
@@ -286,15 +321,24 @@ export default function Flashcards() {
   );
 
   const studyCards = useMemo(() => {
-    if (!activeDeck) return [];
-    if (!shuffledIds) return activeDeck.cards;
+    if (!activeDeck || studyQueue.length === 0) return [];
     const map = new Map(activeDeck.cards.map((c) => [c.id, c]));
-    return shuffledIds.map((id) => map.get(id)).filter(Boolean) as Flashcard[];
-  }, [activeDeck, shuffledIds]);
+    return studyQueue.map((id) => map.get(id)).filter(Boolean) as Flashcard[];
+  }, [activeDeck, studyQueue]);
+
+  const activeDueCount = activeDeck ? countDue(activeDeck.cards) : 0;
 
   const updateDeck = useCallback((deckId: string, updater: (deck: FlashcardDeck) => FlashcardDeck) => {
     setDecks((prev) => prev.map((d) => (d.id === deckId ? updater(d) : d)));
   }, []);
+
+  const tryAwardReviewXP = (force = false, reviewCount = sessionReviews) => {
+    if (!firebaseUser || xpAwardedRef.current) return;
+    if (!force && reviewCount < XP_AFTER_REVIEWS) return;
+    if (reviewCount < 1) return;
+    xpAwardedRef.current = true;
+    awardFlashcardXP(firebaseUser.uid, 'reviewDeck');
+  };
 
   const handleNewDeck = () => {
     setMode('upload');
@@ -310,7 +354,7 @@ export default function Flashcards() {
     setActiveDeckId(deckId);
     setMode('library');
     setError(null);
-    setShuffledIds(null);
+    setStudyQueue([]);
     setStudyIndex(0);
     setFlipped(false);
   };
@@ -469,37 +513,77 @@ export default function Flashcards() {
     updateDeck(deckId, (d) => ({ ...d, title: title.trim() || d.title, updatedAt: Date.now() }));
   };
 
-  const handleFinishStudy = () => {
-    if (firebaseUser) {
-      awardFlashcardXP(firebaseUser.uid,'reviewDeck');
-    }
-    setMode('library'); // Takes them back to the deck screen
-  };
-
-  const startStudy = () => {
-    if (!activeDeck || activeDeck.cards.length === 0) return;
-    setShuffledIds(null);
+  const exitStudy = () => {
+    tryAwardReviewXP(true, sessionReviews);
+    setMode('library');
+    setStudyQueue([]);
     setStudyIndex(0);
     setFlipped(false);
+  };
+
+  const startStudy = (kind: StudyKind = 'srs') => {
+    if (!activeDeck || activeDeck.cards.length === 0) return;
+    const queue =
+      kind === 'srs'
+        ? buildStudyQueue(activeDeck.cards, { newLimit: NEW_CARD_LIMIT })
+        : activeDeck.cards.map((c) => c.id);
+    setStudyKind(kind);
+    setStudyQueue(queue);
+    setStudyIndex(0);
+    setFlipped(false);
+    setSessionReviews(0);
+    xpAwardedRef.current = false;
     setMode('study');
   };
 
   const shuffleStudy = () => {
-    if (!activeDeck) return;
-    const ids = [...activeDeck.cards].sort(() => Math.random() - 0.5).map((c) => c.id);
-    setShuffledIds(ids);
+    if (studyQueue.length === 0) return;
+    const ids = [...studyQueue].sort(() => Math.random() - 0.5);
+    setStudyQueue(ids);
     setStudyIndex(0);
     setFlipped(false);
   };
 
-  const goStudyPrev = () => {
-    setFlipped(false);
-    setStudyIndex((i) => Math.max(0, i - 1));
-  };
+  const handleRate = (rating: SrsRating) => {
+    if (!activeDeck || studyQueue.length === 0) return;
+    const cardId = studyQueue[Math.min(studyIndex, studyQueue.length - 1)];
+    const card = activeDeck.cards.find((c) => c.id === cardId);
+    if (!card) return;
 
-  const goStudyNext = () => {
+    const srs = reviewCard(card, rating);
+    updateDeck(activeDeck.id, (d) => ({
+      ...d,
+      updatedAt: Date.now(),
+      cards: d.cards.map((c) =>
+        c.id === cardId ? { ...c, ...srs, updatedAt: Date.now() } : c
+      ),
+    }));
+
+    const nextReviews = sessionReviews + 1;
+    setSessionReviews(nextReviews);
+    tryAwardReviewXP(false, nextReviews);
+
+    const without = [
+      ...studyQueue.slice(0, studyIndex),
+      ...studyQueue.slice(studyIndex + 1),
+    ];
+    const nextQueue =
+      rating === 'again' ? [...without, cardId] : without;
+
     setFlipped(false);
-    setStudyIndex((i) => Math.min(studyCards.length - 1, i + 1));
+
+    if (nextQueue.length === 0) {
+      setStudyQueue([]);
+      tryAwardReviewXP(true, nextReviews);
+      setMode('library');
+      triggerToast('quest', 'STUDY', 'Session complete — nice work!');
+      return;
+    }
+
+    setStudyQueue(nextQueue);
+    if (studyIndex >= nextQueue.length) {
+      setStudyIndex(nextQueue.length - 1);
+    }
   };
 
   const renderMain = () => {
@@ -617,22 +701,43 @@ export default function Flashcards() {
     }
 
     if (mode === 'study') {
-      const card = studyCards[studyIndex];
-      if (!card) {
+      if (studyCards.length === 0) {
         return (
           <div className="flashcard-empty">
-            <h2>No cards in this deck</h2>
-            <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setMode('edit')}>
-              Edit deck
-            </button>
+            <h2>You&apos;re caught up</h2>
+            <p>
+              {studyKind === 'srs'
+                ? 'No cards are due right now. Come back later, or cram the whole deck.'
+                : 'This deck has no cards yet.'}
+            </p>
+            <div className="flashcard-study-controls">
+              {activeDeck.cards.length > 0 && (
+                <button
+                  type="button"
+                  className="flashcard-btn flashcard-btn-primary"
+                  onClick={() => startStudy('cram')}
+                >
+                  Cram all cards
+                </button>
+              )}
+              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={exitStudy}>
+                Back to deck
+              </button>
+            </div>
           </div>
         );
       }
 
+      const card = studyCards[Math.min(studyIndex, studyCards.length - 1)];
+      const remaining = studyCards.length;
+      const cardIsNew = isNew(card);
+
       return (
         <div className="flashcard-study">
           <div className="flashcard-study-progress">
-            Card {studyIndex + 1} of {studyCards.length}
+            {studyKind === 'srs' ? 'Due session' : 'Cram'} · {remaining} left
+            {cardIsNew ? ' · New' : ''}
+            {sessionReviews > 0 ? ` · ${sessionReviews} reviewed` : ''}
           </div>
           <div
             className="flashcard-flip-card"
@@ -647,35 +752,59 @@ export default function Flashcards() {
               <div className="flashcard-flip-face back">{card.back}</div>
             </div>
           </div>
-          <p className="flashcard-study-hint">Click the card or press Space to flip</p>
-          <div className="flashcard-study-controls">
-            <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={goStudyPrev} disabled={studyIndex === 0}>
-              Previous
-            </button>
-            <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setFlipped((f) => !f)}>
-              Flip
-            </button>
-            {studyIndex >= studyCards.length - 1 ? (
-              <button 
-                type="button" 
-                className="flashcard-btn flashcard-btn-primary" 
-                onClick={handleFinishStudy}
-                style={{ background: '#f6d96a', color: '#3d2914', border: 'none', fontWeight: 'bold' }}
+          <p className="flashcard-study-hint">
+            {flipped
+              ? 'How well did you remember this?'
+              : 'Click the card or press Space to flip, then rate your recall'}
+          </p>
+          {flipped ? (
+            <div className="flashcard-rating-row" role="group" aria-label="Recall rating">
+              <button
+                type="button"
+                className="flashcard-rating-btn again"
+                onClick={() => handleRate('again')}
               >
-                Finish (Claim daily XP)
+                Again
               </button>
-            ) : (
-              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={goStudyNext}>
-                Next
+              <button
+                type="button"
+                className="flashcard-rating-btn hard"
+                onClick={() => handleRate('hard')}
+              >
+                Hard
               </button>
-            )}
-            <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={shuffleStudy}>
-              Shuffle
-            </button>
-            <button type="button" className="flashcard-btn flashcard-btn-primary" onClick={() => setMode('library')}>
-              Done
-            </button>
-          </div>
+              <button
+                type="button"
+                className="flashcard-rating-btn good"
+                onClick={() => handleRate('good')}
+              >
+                Good
+              </button>
+              <button
+                type="button"
+                className="flashcard-rating-btn easy"
+                onClick={() => handleRate('easy')}
+              >
+                Easy
+              </button>
+            </div>
+          ) : (
+            <div className="flashcard-study-controls">
+              <button
+                type="button"
+                className="flashcard-btn flashcard-btn-secondary"
+                onClick={() => setFlipped(true)}
+              >
+                Show answer
+              </button>
+              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={shuffleStudy}>
+                Shuffle
+              </button>
+              <button type="button" className="flashcard-btn flashcard-btn-primary" onClick={exitStudy}>
+                Done
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -720,11 +849,25 @@ export default function Flashcards() {
         <h2>{activeDeck.title}</h2>
         <p>
           {activeDeck.cards.length} cards
+          {activeDueCount > 0 ? ` · ${activeDueCount} due` : ' · all caught up'}
           {activeDeck.sourceFileName ? ` · from ${activeDeck.sourceFileName}` : ''}
         </p>
         <div className="flashcard-study-controls">
-          <button type="button" className="flashcard-btn flashcard-btn-primary" onClick={startStudy}>
-            Study deck
+          <button
+            type="button"
+            className="flashcard-btn flashcard-btn-primary"
+            onClick={() => startStudy('srs')}
+            disabled={activeDeck.cards.length === 0}
+          >
+            {activeDueCount > 0 ? `Study due (${activeDueCount})` : 'Study due'}
+          </button>
+          <button
+            type="button"
+            className="flashcard-btn flashcard-btn-secondary"
+            onClick={() => startStudy('cram')}
+            disabled={activeDeck.cards.length === 0}
+          >
+            Cram all
           </button>
           <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setMode('edit')}>
             Edit cards
@@ -759,7 +902,9 @@ export default function Flashcards() {
               </div>
             </button>
           ) : (
-            sortedDecks.map((deck) => (
+            sortedDecks.map((deck) => {
+              const due = countDue(deck.cards);
+              return (
               <button
                 key={deck.id}
                 type="button"
@@ -770,11 +915,15 @@ export default function Flashcards() {
                 <div className="flashcard-deck-item-body">
                   <span className="flashcard-deck-item-title">{deck.title}</span>
                   <span className="flashcard-deck-item-meta">
-                    {deck.cards.length} cards · {formatRelativeTime(deck.updatedAt)}
+                    {deck.cards.length} cards
+                    {due > 0 ? ` · ${due} due` : ''}
+                    {' · '}
+                    {formatRelativeTime(deck.updatedAt)}
                   </span>
                 </div>
               </button>
-            ))
+              );
+            })
           )}
         </div>
       </aside>
@@ -807,7 +956,7 @@ export default function Flashcards() {
                 <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => handleTogglePin(activeDeck.id)}>
                   {activeDeck.pinned ? 'Unpin' : 'Pin'}
                 </button>
-                <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={startStudy} disabled={activeDeck.cards.length === 0}>
+                <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => startStudy('srs')} disabled={activeDeck.cards.length === 0}>
                   Study
                 </button>
                 <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setMode('edit')}>
@@ -819,7 +968,7 @@ export default function Flashcards() {
               </>
             )}
             {mode === 'study' && (
-              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={() => setMode('library')}>
+              <button type="button" className="flashcard-btn flashcard-btn-secondary" onClick={exitStudy}>
                 Exit study
               </button>
             )}

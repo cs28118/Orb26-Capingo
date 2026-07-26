@@ -4,6 +4,8 @@
 
 Repository: [github.com/cs28118/Orb26-Capingo](https://github.com/cs28118/Orb26-Capingo)
 
+[![CI](https://github.com/cs28118/Orb26-Capingo/actions/workflows/ci.yml/badge.svg)](https://github.com/cs28118/Orb26-Capingo/actions/workflows/ci.yml)
+
 ---
 
 ## What Capingo does
@@ -154,8 +156,10 @@ Turn your **PDF notes** into study decks using Ollama or Gemini. Decks are **sav
    - **Advanced** — exam-style application questions
 4. AI generates **front** (question/term) and **back** (answer) cards
 5. **Edit** cards — change text, add, or delete before studying
-6. **Study mode** — flip cards (click or Space), previous/next, shuffle; finish a deck to claim daily quest XP
-7. Decks auto-save to the database; older browser-only decks migrate on first signed-in load (no manual reset needed)
+6. **Study due** — spaced repetition (simplified SM-2): study cards that are due, flip, then rate **Again / Hard / Good / Easy**. Intervals grow with good recall; Again brings the card back soon in the same session
+7. **Cram all** — optional full-deck review when you want extra practice (still updates scheduling when you rate)
+8. Deck list shows **X due**; finish ~10 ratings or clear the due queue to claim daily review quest XP
+9. Decks auto-save to the database (including SRS fields); older decks without schedule data are treated as new/due
 
 **Supported PDFs**
 
@@ -184,13 +188,38 @@ Find classmates studying the same subjects.
 
 - Send a **partner request** → **accept** or **decline**
 - Accepted partners show **shared subjects**; remove a partner anytime
+- **Message** opens a 1:1 chat in Study Rooms
+
+---
+
+### Study Rooms (Collaboration Space)
+
+Shared spaces for accepted partners — 1:1 messaging and group study rooms. Live chat uses **Socket.IO**; room data is stored in **MongoDB**.
+
+**Layout** (`/home/space`)
+
+- **Left:** Friends (accepted partners) and Study rooms list
+- **Main:** chat thread; for group rooms also **Announcements** and **Resources** tabs
+
+**Partner messaging (1:1)**
+
+- Click a friend (or **Message** from Study Partners) to open a direct room
+- Only works with **accepted** partners
+
+**Group study rooms**
+
+- **Create** a room with a name → get a shareable `ROOM-XXXXXX` code
+- **Join** with a room code
+- **Invite** accepted partners; view members; leave room
+- Admins can **kick** members, **promote** admins, and post **announcements**
+- Anyone in the room can share **resource links** (http/https)
 
 ---
 
 ## Look & feel
 
 - **Yellow navigation bar** with the Capingo logo (capybara with graduation cap)
-- Sections: Dashboard, Timetable, Chatbot, Flashcard, Study Partners
+- Sections: Dashboard, Timetable, Chatbot, Flashcard, Study Partners, Study Rooms
 - **Log out** in the top-right when you're done
 
 ---
@@ -284,7 +313,7 @@ Open **http://localhost:5173/**
 
 > Use **localhost**, not `127.0.0.1`, if the page doesn't load.
 
-**Flow:** sign in → **Timetable** (add subjects) → **Chatbot** → **Flashcard** → **Study Partners**
+**Flow:** sign in → **Timetable** (add subjects) → **Study Partners** → **Study Rooms** → **Chatbot** → **Flashcard**
 
 ---
 
@@ -326,17 +355,77 @@ Both frontend and backend env vars are required for chatbot, flashcards, timetab
 
 ---
 
+## Testing & continuous integration
+
+Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one pipeline per feature). Feature-level matrices, edge/failure cases, and screenshots live under [`docs/testing/`](docs/testing/); CI details are in [`docs/ci.md`](docs/ci.md).
+
+### Checklist
+
+| Item | Status |
+|------|--------|
+| **Unit test coverage** | Frontend: Vitest for SM-2 spaced repetition (`sm2.ts`, 12 tests). Backend: partner/room codes, subject sync, canonical pair (7 tests) |
+| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms, partners, decks (incl. SRS fields), timetable subject sync, profile quests (24 tests total) |
+| **End-to-end testing** | Playwright login-page smoke (CI). Fuller journeys (Partners → Rooms, flashcard study, chatbot) documented as manual / local in feature docs |
+| **Edge cases** | Documented per feature (e.g. new-card queue limit, DM find-or-create, last admin leave, quest daily cap) |
+| **Failure cases** | Documented + automated where possible (403 non-partner DM, 404 bad room/partner code, 400 invalid payloads) |
+| **Screenshots of test results** | [`docs/testing/evidence/`](docs/testing/evidence/) — unit/integration logs, [`e2e/login-page.png`](docs/testing/evidence/e2e/login-page.png) |
+| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green Actions screenshot: [`docs/testing/evidence/ci/`](docs/testing/evidence/ci/) (add after first push) |
+| **Code coverage reports** | `npm run test:coverage` in `react/` and `backend/` → HTML under `*/coverage` (gitignored). Summaries: [`docs/testing/evidence/coverage/`](docs/testing/evidence/coverage/) |
+
+### Run tests locally
+
+```powershell
+# Frontend unit + coverage + E2E smoke
+cd react
+npm run typecheck
+npm run test:coverage
+npm run test:e2e
+
+# Backend unit + integration + coverage
+cd ../backend
+npm run test:coverage
+```
+
+### Per-feature testing docs
+
+| Feature | Doc |
+|---------|-----|
+| Sign in & accounts | [docs/testing/auth-accounts.md](docs/testing/auth-accounts.md) |
+| Dashboard | [docs/testing/dashboard.md](docs/testing/dashboard.md) |
+| XP & levels | [docs/testing/xp-levels.md](docs/testing/xp-levels.md) |
+| Achievements | [docs/testing/achievements.md](docs/testing/achievements.md) |
+| Timetable | [docs/testing/timetable.md](docs/testing/timetable.md) |
+| Chatbot | [docs/testing/chatbot.md](docs/testing/chatbot.md) |
+| Flashcards + SRS | [docs/testing/flashcards.md](docs/testing/flashcards.md) |
+| Study Partners | [docs/testing/study-partners.md](docs/testing/study-partners.md) |
+| Study Rooms | [docs/testing/study-rooms.md](docs/testing/study-rooms.md) |
+
+### CI jobs
+
+| Job | What it runs |
+|-----|----------------|
+| **Frontend** | `npm ci` → typecheck → Vitest + coverage artifact |
+| **Backend** | `npm ci` → Vitest unit/integration + coverage artifact |
+| **E2E** | Playwright Chromium smoke (login page; stub Firebase env for mount) |
+
+Badge at the top of this README reflects the latest workflow run on GitHub.
+
+---
+
 ## Project structure
 
 ```text
 Orb26-Capingo/
+├── .github/workflows/  CI pipeline
+├── docs/               CI + per-feature testing docs
 ├── backend/
 │   ├── models/       Mongoose schemas
 │   ├── routes/       REST API
 │   ├── utils/        Subject sync, partner codes
-│   ├── index.js      Ollama backend
-│   └── indexGemini.js Gemini backend
-├── react/            Vite + React website
+│   ├── tests/        Unit + integration tests
+│   ├── index.js      Ollama backend + Socket.IO
+│   └── indexGemini.js Gemini backend + Socket.IO
+├── react/            Vite + React website (+ Vitest / Playwright)
 └── README.md
 ```
 
@@ -350,14 +439,15 @@ Orb26-Capingo/
 
 **Partners:** `GET /api/partners/suggestions/:uid`, `GET /api/partners/:uid`, `POST /api/partners/request`, `POST /api/partners/accept`, `POST /api/partners/decline`, `PUT /api/partners/subjects/:uid`
 
+**Rooms:** `GET /api/rooms/:uid`, `POST /api/rooms/direct`, `POST /api/rooms/group`, `POST /api/rooms/join`, messages / members / announcements / resources under `/api/rooms/:roomId/...` + Socket.IO realtime chat
+
 ---
 
 ## What's next
 
-- Partner messaging or shared study rooms
 - Firebase token verification on API routes
 - Dashboard widgets (upcoming tasks, recent chats)
-- Spaced repetition for flashcard study
+- Wire remaining achievement unlocks (Capy Chatter, Master Scheduler, etc.)
 
 ---
 

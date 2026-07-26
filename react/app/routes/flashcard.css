@@ -379,6 +379,59 @@
   justify-content: center;
 }
 
+.flashcard-rating-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.flashcard-rating-btn {
+  flex: 1 1 100px;
+  min-width: 88px;
+  padding: 12px 10px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.flashcard-rating-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.flashcard-rating-btn:active {
+  transform: translateY(0);
+}
+
+.flashcard-rating-btn.again {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.flashcard-rating-btn.hard {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.flashcard-rating-btn.good {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.flashcard-rating-btn.easy {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
 .flashcard-loading-decks {
   grid-column: 1 / -1;
   text-align: center;

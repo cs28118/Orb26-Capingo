@@ -9,4 +9,4 @@ const AnnouncementSchema = new mongoose.Schema({
 
 AnnouncementSchema.index({ roomId: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Announcement', AnnouncementSchema);
+module.exports = mongoose.models.Announcement || mongoose.model('Announcement', AnnouncementSchema);

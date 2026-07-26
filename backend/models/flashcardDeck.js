@@ -6,6 +6,13 @@ const CardSchema = new mongoose.Schema({
   back: { type: String, default: '' },
   createdAt: { type: Number, required: true },
   updatedAt: { type: Number },
+  // Spaced repetition (SM-2) — missing fields treated as new/due on the client
+  ease: { type: Number, default: 2.5 },
+  interval: { type: Number, default: 0 },
+  repetitions: { type: Number, default: 0 },
+  dueAt: { type: Number, default: 0 },
+  lastReviewedAt: { type: Number },
+  lapses: { type: Number, default: 0 },
 }, { _id: false });
 
 const DeckSchema = new mongoose.Schema({
@@ -25,4 +32,4 @@ const FlashcardCollectionSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('FlashcardCollection', FlashcardCollectionSchema);
+module.exports = mongoose.models.FlashcardCollection || mongoose.model('FlashcardCollection', FlashcardCollectionSchema);

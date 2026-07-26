@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useSearchParams } from 'react-router';
 import { io, Socket } from 'socket.io-client';
 import './space.css';
 
@@ -66,6 +67,7 @@ function getApiBase() {
 }
 
 export default function Space() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [firebaseUser, setFirebaseUser] = useState<{ uid: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -88,7 +90,8 @@ export default function Space() {
   const activeRoomIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const joinedRoomIdsRef = useRef<Set<string>>(new Set());
-  
+  const openedDmRef = useRef(false);
+
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
 
@@ -219,6 +222,17 @@ export default function Space() {
       setError(err instanceof Error ? err.message : 'Could not open chat');
     }
   };
+
+  useEffect(() => {
+    if (!firebaseUser || isLoading || openedDmRef.current) return;
+    const dmUid = searchParams.get('dm');
+    if (!dmUid) return;
+    const friend = friends.find((f) => f.uid === dmUid);
+    if (!friend) return;
+    openedDmRef.current = true;
+    setSearchParams({}, { replace: true });
+    void openFriendChat(friend);
+  }, [firebaseUser, isLoading, friends, searchParams, setSearchParams]);
 
   const handleCreateRoom = async () => {
     if (!firebaseUser) return;

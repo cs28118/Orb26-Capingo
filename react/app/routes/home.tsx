@@ -14,7 +14,8 @@ export default function Home() {
     const location = useLocation();
     const isChatbot = location.pathname.includes('/chatbot');
     const isFlashcard = location.pathname.includes('/flashcard');
-    const isFullBleed = isChatbot || isFlashcard;
+    const isSpace = location.pathname.includes('/space');
+    const isFullBleed = isChatbot || isFlashcard || isSpace;
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -95,7 +96,7 @@ export default function Home() {
                     </NavLink>
 
                     <NavLink to="/home/space" className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}>
-                        Collaboration Space
+                        Study Rooms
                     </NavLink>
                 </nav>
 

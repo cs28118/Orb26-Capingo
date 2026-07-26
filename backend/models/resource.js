@@ -11,4 +11,4 @@ const ResourceSchema = new mongoose.Schema({
 
 ResourceSchema.index({ roomId: 1, createdAt: -1 });
 
-module.exports = mongoose.model('Resource', ResourceSchema);
+module.exports = mongoose.models.Resource || mongoose.model('Resource', ResourceSchema);

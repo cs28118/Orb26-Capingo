@@ -475,6 +475,9 @@ export default function Collaboration() {
                   ))}
                 </div>
                 <div className="partner-card-actions">
+                  <Link to={`/home/space?dm=${encodeURIComponent(p.uid)}`} className="collab-btn collab-btn-primary">
+                    Message
+                  </Link>
                   <button type="button" className="collab-btn collab-btn-danger" onClick={() => removePartner(p.uid)}>
                     Remove
                   </button>

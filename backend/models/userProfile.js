@@ -49,4 +49,4 @@ const UserProfileSchema = new mongoose.Schema({
 
 UserProfileSchema.index({ subjects: 1 });
 
-module.exports = mongoose.model('UserProfile', UserProfileSchema);
+module.exports = mongoose.models.UserProfile || mongoose.model('UserProfile', UserProfileSchema);

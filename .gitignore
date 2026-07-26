@@ -19,3 +19,10 @@ npm-debug.log*
 
 # Keep examples, ignore secrets
 !.env.example
+
+# Test / coverage artifacts
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/

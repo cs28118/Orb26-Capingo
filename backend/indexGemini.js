@@ -19,7 +19,8 @@ connectDB();
 const PORT = process.env.PORT || 5000;
 const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
   .split(',')
-  .map((o) => o.trim());
+  .map((s) => s.trim())
+  .filter(Boolean);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'; 
 const MAX_PDF_BYTES = Number(process.env.MAX_PDF_MB || 10) * 1024 * 1024;

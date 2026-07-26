@@ -29,4 +29,4 @@ const TimetableSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('Timetable', TimetableSchema);
+module.exports = mongoose.models.Timetable || mongoose.model('Timetable', TimetableSchema);

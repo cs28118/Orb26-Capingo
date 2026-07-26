@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import './flashcard.css';
 import { triggerToast } from '../components/NotiHelper';
@@ -169,6 +170,7 @@ export default function Flashcards() {
   const [cardCount, setCardCount] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>('standard');
   const [deckTitle, setDeckTitle] = useState('');
+  const [adaptiveWarning, setAdaptiveWarning] = useState<string | null>(null);
 
   const [studyIndex, setStudyIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -176,8 +178,17 @@ export default function Flashcards() {
   const [studyKind, setStudyKind] = useState<StudyKind>('srs');
   const [sessionReviews, setSessionReviews] = useState(0);
   const xpAwardedRef = useRef(false);
+  const studyMetaRef = useRef<{
+    deckId: string;
+    deckTitle: string;
+    deckCardCount: number;
+    queueSize: number;
+    startedAt: number;
+  } | null>(null);
+  const deepLinkHandledRef = useRef(false);
 
   const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
@@ -215,12 +226,14 @@ export default function Flashcards() {
 
         setDecks(loaded);
         if (loaded.length > 0) {
+          const preferred = searchParams.get('deck');
           const sorted = [...loaded].sort((a, b) => {
             if (a.pinned && !b.pinned) return -1;
             if (!a.pinned && b.pinned) return 1;
             return b.updatedAt - a.updatedAt;
           });
-          setActiveDeckId(sorted[0].id);
+          const match = preferred && loaded.some((d) => d.id === preferred) ? preferred : sorted[0].id;
+          setActiveDeckId(match);
         }
         setSaveError('');
       } catch (err) {
@@ -240,6 +253,47 @@ export default function Flashcards() {
 
     fetchDecks();
   }, [firebaseUser]);
+
+  // Deep-link: /home/flashcard?deck=ID&study=1 → open study mode
+  useEffect(() => {
+    if (isLoadingDecks || deepLinkHandledRef.current || decks.length === 0) return;
+    const deckId = searchParams.get('deck');
+    const wantStudy = searchParams.get('study') === '1';
+    if (!deckId) return;
+    const deck = decks.find((d) => d.id === deckId);
+    if (!deck) return;
+    deepLinkHandledRef.current = true;
+    setActiveDeckId(deckId);
+    setSearchParams({}, { replace: true });
+    if (wantStudy && deck.cards.length > 0) {
+      const queue = buildStudyQueue(deck.cards, { newLimit: NEW_CARD_LIMIT });
+      setStudyKind('srs');
+      setStudyQueue(queue);
+      setStudyIndex(0);
+      setFlipped(false);
+      setSessionReviews(0);
+      xpAwardedRef.current = false;
+      studyMetaRef.current = {
+        deckId: deck.id,
+        deckTitle: deck.title,
+        deckCardCount: deck.cards.length,
+        queueSize: queue.length,
+        startedAt: Date.now(),
+      };
+      setMode('study');
+    } else {
+      setMode('library');
+    }
+  }, [isLoadingDecks, decks, searchParams, setSearchParams]);
+
+  // Refresh adaptive defaults when the create-deck title changes
+  useEffect(() => {
+    if (mode !== 'upload' || !firebaseUser) return;
+    const t = setTimeout(() => {
+      void applyAdaptiveDefaults(deckTitle.trim());
+    }, 400);
+    return () => clearTimeout(t);
+  }, [deckTitle, mode, firebaseUser]);
 
   useEffect(() => {
     if (!firebaseUser || isLoadingDecks) return;
@@ -331,14 +385,59 @@ export default function Flashcards() {
     awardFlashcardXP(firebaseUser.uid, 'reviewDeck');
   };
 
+  const recordStudySession = async (completed: boolean, reviewedCount: number) => {
+    const meta = studyMetaRef.current;
+    if (!firebaseUser || !meta) return;
+    studyMetaRef.current = null;
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deckId: meta.deckId,
+          deckTitle: meta.deckTitle,
+          deckCardCount: meta.deckCardCount,
+          queueSize: meta.queueSize,
+          reviewedCount,
+          completed,
+          startedAt: meta.startedAt,
+          endedAt: Date.now(),
+        }),
+      });
+    } catch (err) {
+      console.error('Error recording study session:', err);
+    }
+  };
+
+  const applyAdaptiveDefaults = async (hint: string) => {
+    if (!firebaseUser) return;
+    try {
+      const q = hint ? `?title=${encodeURIComponent(hint)}` : '';
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/decks/${firebaseUser.uid}/adaptive-defaults${q}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data.cardCount === 'number') setCardCount(data.cardCount);
+      if (data.difficulty === 'basic' || data.difficulty === 'standard' || data.difficulty === 'advanced') {
+        setDifficulty(data.difficulty);
+      }
+      setAdaptiveWarning(typeof data.warning === 'string' ? data.warning : null);
+    } catch (err) {
+      console.error('Error loading adaptive defaults:', err);
+    }
+  };
+
   const handleNewDeck = () => {
     setMode('upload');
     setParsedPdf(null);
     setDeckTitle('');
     setCardCount(20);
     setDifficulty('standard');
+    setAdaptiveWarning(null);
     setError(null);
     setActiveDeckId(null);
+    void applyAdaptiveDefaults('');
   };
 
   const handleSelectDeck = (deckId: string) => {
@@ -505,7 +604,9 @@ export default function Flashcards() {
   };
 
   const exitStudy = () => {
-    tryAwardReviewXP(true, sessionReviews);
+    const reviews = sessionReviews;
+    tryAwardReviewXP(true, reviews);
+    void recordStudySession(false, reviews);
     setMode('library');
     setStudyQueue([]);
     setStudyIndex(0);
@@ -524,6 +625,13 @@ export default function Flashcards() {
     setFlipped(false);
     setSessionReviews(0);
     xpAwardedRef.current = false;
+    studyMetaRef.current = {
+      deckId: activeDeck.id,
+      deckTitle: activeDeck.title,
+      deckCardCount: activeDeck.cards.length,
+      queueSize: queue.length,
+      startedAt: Date.now(),
+    };
     setMode('study');
   };
 
@@ -566,6 +674,7 @@ export default function Flashcards() {
     if (nextQueue.length === 0) {
       setStudyQueue([]);
       tryAwardReviewXP(true, nextReviews);
+      void recordStudySession(true, nextReviews);
       setMode('library');
       triggerToast('quest', 'STUDY', 'Session complete — nice work!');
       return;
@@ -658,6 +767,12 @@ export default function Flashcards() {
                 <option value="standard">Standard — concepts + examples</option>
                 <option value="advanced">Advanced — exam-style questions</option>
               </select>
+
+              {adaptiveWarning && (
+                <p className="flashcard-adaptive-warning" role="status">
+                  {adaptiveWarning}
+                </p>
+              )}
 
               <button
                 type="button"

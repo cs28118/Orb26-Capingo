@@ -154,6 +154,27 @@ export async function installApiMocks(page: Page, mode: MockMode = {}) {
       });
     }
 
+    if (pathName.includes('/adaptive-defaults') && method === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          cardCount: 12,
+          difficulty: 'basic',
+          warning: null,
+          sampleSize: 0,
+        }),
+      });
+    }
+
+    if (pathName.includes('/api/decks/') && pathName.includes('/sessions') && method === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    }
+
     if (pathName.includes('/api/decks/') && method === 'GET') {
       const cards = mode.flashcardsCaughtUp ? [futureCard] : [dueCard];
       return route.fulfill({
@@ -239,6 +260,50 @@ export async function installApiMocks(page: Page, mode: MockMode = {}) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ manualSubjects: ['Math'], openToPartners: true }),
+      });
+    }
+
+    if (pathName.includes('/chat-nudge') && method === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          openingMessage:
+            'Hey — quick thought when you have a minute: You schedule Math often, but you do not have a flashcard deck for it yet. If you want, we can tackle that together (Create a deck), or ask me about anything else.',
+          recommendation: {
+            id: 'subject_gap',
+            message: 'You schedule Math often, but you do not have a flashcard deck for it yet.',
+            cta: { label: 'Create a deck', link: '/home/flashcard' },
+            priority: 70,
+          },
+          systemText: '',
+        }),
+      });
+    }
+
+    if (pathName.includes('/api/dashboard/recommendations/') && method === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          mode: 'adaptive',
+          recommendations: [
+            {
+              id: 'subject_gap',
+              message: 'You schedule Math often, but you do not have a flashcard deck for it yet.',
+              cta: { label: 'Create a deck', link: '/home/flashcard' },
+              priority: 70,
+            },
+          ],
+        }),
+      });
+    }
+
+    if (pathName.includes('/api/dashboard/recommendations/dismiss') && method === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
       });
     }
 

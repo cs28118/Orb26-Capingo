@@ -60,6 +60,15 @@ Your home screen after login.
 - **Study rooms** — recent rooms / DMs; link to Study Rooms
 - Each widget fails soft (empty/error copy) without breaking the rest of the Dashboard
 
+**For you (Smart Recommendations)**
+
+- Rule-based nudges from your timetable, decks, streak, and quests (no extra form)
+- New accounts see **Get started** tips (timetable, deck, profile, chat)
+- Dismiss hides a tip for the rest of the day
+- **Chatbot** may open a new empty chat with one collaborative tip (priority ≥ 70, once per day)
+- **Quests** keep the same list for everyone; the most-neglected action gets a **1.25×** XP weight (★ on Dashboard)
+- **Flashcards** remember finished vs abandoned study sessions and pre-fill card count / difficulty (with a soft “too many cards” warning when relevant)
+
 ---
 
 ### XP & levels
@@ -143,9 +152,10 @@ Your **AI study co-pilot**.
 **How it works**
 
 - Ask anything study-related — explanations, summaries, quiz help, study plans
+- **Gemini only:** Capingo can propose timetable, flashcard, and streak actions — you get a Confirm / Cancel card before anything is written
 - Replies can use **bold text** and lists for readability
 - Chats are **saved in MongoDB** (one document per conversation) so they survive refresh when signed in
-- **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages**
+- **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages** (pending action cards stay out of the summary until resolved)
 - **New chat** starts with a **fresh memory context** (no carry-over from other threads)
 - Existing browser-only chats migrate to MongoDB automatically on first signed-in load (no manual reset needed)
 
@@ -454,7 +464,9 @@ Orb26-Capingo/
 
 **Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/update`, `POST /api/profile/timetable-achievement`, `POST /api/profile/unlock-achievements`
 
-**Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET|POST|PUT|DELETE /api/chats/:uid/...`
+**Dashboard:** `GET /api/dashboard/recommendations/:uid`, `GET /api/dashboard/recommendations/:uid/chat-nudge`, `POST /api/dashboard/recommendations/dismiss`
+
+**Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET /api/decks/:uid/adaptive-defaults`, `POST /api/decks/:uid/sessions`, `GET|POST|PUT|DELETE /api/chats/:uid/...`, `POST /api/chats/:uid/:chatId/actions/:messageId/confirm|cancel`
 
 **Partners:** `GET /api/partners/suggestions/:uid`, `GET /api/partners/:uid`, `POST /api/partners/request`, `POST /api/partners/accept`, `POST /api/partners/decline`, `PUT /api/partners/subjects/:uid`
 

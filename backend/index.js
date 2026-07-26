@@ -303,12 +303,14 @@ const deckRoutes = require('./routes/decks');
 const chatRoutes = require('./routes/chats');
 const partnerRoutes = require('./routes/partners');
 const roomRoutes = require('./routes/rooms');
+const dashboardRoutes = require('./routes/dashboard');
 app.use('/api/profile', profileRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/decks', deckRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.get('/', (req, res) => {
   res.send('Capingo is running');
 });

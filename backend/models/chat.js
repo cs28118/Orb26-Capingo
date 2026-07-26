@@ -1,11 +1,21 @@
-//chatbot chat
 const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
   id: { type: String, required: true },
-  role: { type: String, enum: ['user', 'assistant'], required: true },
-  content: { type: String, required: true },
+  role: { type: String, enum: ['user', 'assistant', 'action'], required: true },
+  content: { type: String, default: '' },
   createdAt: { type: Number, required: true },
+  action: {
+    tool: { type: String },
+    args: { type: mongoose.Schema.Types.Mixed },
+    status: {
+      type: String,
+      enum: ['pending', 'confirmed', 'cancelled', 'expired'],
+      default: 'pending',
+    },
+    summary: { type: String },
+    result: { type: mongoose.Schema.Types.Mixed },
+  },
 }, { _id: false });
 
 const ChatSchema = new mongoose.Schema({

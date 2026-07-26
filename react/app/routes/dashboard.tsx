@@ -67,6 +67,13 @@ export default function Dashboard() {
     error: '',
     data: [],
   });
+  const [recommendations, setRecommendations] = useState<
+    Array<{ id: string; message: string; cta: { label: string; link: string } }>
+  >([]);
+  const [recommendationsReady, setRecommendationsReady] = useState(false);
+  const [recommendationsMode, setRecommendationsMode] = useState<'adaptive' | 'onboarding' | null>(
+    null
+  );
   
   //auth state
   useEffect(() => {
@@ -119,6 +126,47 @@ export default function Dashboard() {
     };
     fetchUserData();
   }, [firebaseUser]);
+
+  // Smart Recommendations — soft-fail; hide section until resolved
+  useEffect(() => {
+    if (!firebaseUser) return;
+    let cancelled = false;
+    const loadRecs = async () => {
+      try {
+        const res = await fetch(
+          `${apiBase()}/api/dashboard/recommendations/${firebaseUser.uid}`
+        );
+        if (!res.ok) throw new Error('Failed to load recommendations');
+        const data = await res.json();
+        if (cancelled) return;
+        setRecommendations(Array.isArray(data.recommendations) ? data.recommendations : []);
+        setRecommendationsMode(data.mode === 'onboarding' ? 'onboarding' : 'adaptive');
+      } catch (err) {
+        console.error('Error loading recommendations:', err);
+        if (!cancelled) setRecommendations([]);
+      } finally {
+        if (!cancelled) setRecommendationsReady(true);
+      }
+    };
+    void loadRecs();
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser]);
+
+  const dismissRecommendation = async (recommendationId: string) => {
+    if (!firebaseUser) return;
+    setRecommendations((prev) => prev.filter((r) => r.id !== recommendationId));
+    try {
+      await fetch(`${apiBase()}/api/dashboard/recommendations/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: firebaseUser.uid, recommendationId }),
+      });
+    } catch (err) {
+      console.error('Error dismissing recommendation:', err);
+    }
+  };
 
   // Dashboard widgets — soft-fail independently of profile
   useEffect(() => {
@@ -349,6 +397,35 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {/* Smart Recommendations — For You */}
+      {recommendationsReady && recommendations.length > 0 && (
+        <section className="for-you-section" aria-label="For you">
+          <h3 className="section-title">
+            {recommendationsMode === 'onboarding' ? 'Get started' : 'For you'}
+          </h3>
+          <ul className="for-you-list">
+            {recommendations.map((rec) => (
+              <li key={rec.id} className="for-you-item">
+                <div className="for-you-body">
+                  <p className="for-you-message">{rec.message}</p>
+                  <Link to={rec.cta.link} className="for-you-cta">
+                    {rec.cta.label} →
+                  </Link>
+                </div>
+                <button
+                  type="button"
+                  className="for-you-dismiss"
+                  aria-label={`Dismiss recommendation: ${rec.message}`}
+                  onClick={() => void dismissRecommendation(rec.id)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* quest list */}
       <div className="quests-section">
         <h3 className="section-title">Quest List</h3>
@@ -375,7 +452,10 @@ export default function Dashboard() {
             <span className="quest-action">
               Review a Flashcard Deck ({userData.dailyProgress?.decksReviewed || 0}/2)
             </span>
-            <span className="quest-reward">60 XP</span>
+            <span className="quest-reward">
+              {userData.personalizedQuestRewards?.reviewDeck?.xp ?? 60} XP
+              {userData.personalizedQuestRewards?.reviewDeck?.boosted ? ' ★' : ''}
+            </span>
           </li>
 
           {/* quest 2 */}
@@ -384,7 +464,10 @@ export default function Dashboard() {
             <span className="quest-action">
               Chat with Capingo ({userData.dailyProgress?.chatMessages || 0}/5)
             </span>
-            <span className="quest-reward">50 XP</span>
+            <span className="quest-reward">
+              {userData.personalizedQuestRewards?.chatMessage?.xp ?? 50} XP
+              {userData.personalizedQuestRewards?.chatMessage?.boosted ? ' ★' : ''}
+            </span>
           </li>
 
           {/* quest 3 */}
@@ -393,7 +476,10 @@ export default function Dashboard() {
             <span className="quest-action">
               Create a new Flashcard Deck ({userData.dailyProgress?.decksCreated || 0}/1)
             </span>
-            <span className="quest-reward">30 XP</span>
+            <span className="quest-reward">
+              {userData.personalizedQuestRewards?.createDeck?.xp ?? 30} XP
+              {userData.personalizedQuestRewards?.createDeck?.boosted ? ' ★' : ''}
+            </span>
           </li>
         </ul>
       </div>

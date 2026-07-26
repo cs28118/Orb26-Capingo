@@ -29,7 +29,11 @@ const FLASHCARD_CHUNK_SIZE = 8000;
 const SYSTEM_PROMPT = `You are Capingo AI, a friendly study co-pilot represented by a capybara mascot.
 Help students learn clearly and patiently. Use markdown when helpful: **bold**, numbered lists, and short paragraphs.
 Keep answers focused and educational. If asked to quiz the student, ask 2-3 questions.
-When a message includes a "Student's current progress" system note, use it naturally to personalize your reply — don't just repeat the raw data back as a list unless they specifically ask for a summary.`;
+When a message includes a "Student's current progress" system note, use it naturally to personalize your reply — don't just repeat the raw data back as a list unless they specifically ask for a summary.
+
+You have tools to update the student's timetable, create flashcard decks from a topic description, and claim the login streak.
+When the student asks you to schedule something or add a task, resolve relative times yourself into concrete day/startHour/deadline values before calling a tool — never pass vague times like "tomorrow afternoon".
+Prefer proposing a tool call over only describing what they should do manually when they clearly want Capingo to make the change.`;
 
 const SUMMARIZE_PROMPT = `You compress study-chat history into a concise memory note for future replies.
 Keep: topics covered, key facts taught, quiz progress, student mistakes, and open questions.
@@ -143,6 +147,16 @@ const upload = multer({
 });
 
 async function callGemini(messages, requireJson = false) {
+  const content = await callGeminiContent(messages, { requireJson });
+  const textPart = (content.parts || []).find((p) => typeof p.text === 'string');
+  return textPart?.text ?? '';
+}
+
+/**
+ * Low-level Gemini generateContent. Supports optional functionDeclarations for /api/chat only.
+ * Summarize / flashcard callers keep using callGemini() (text-only).
+ */
+async function callGeminiContent(messages, options = {}) {
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is missing');
   }
@@ -151,24 +165,37 @@ async function callGemini(messages, requireJson = false) {
   for (const msg of messages) {
     if (msg.role === 'system') {
       systemText += msg.content + '\n';
+    } else if (msg.functionCall) {
+      contents.push({
+        role: 'model',
+        parts: [{ functionCall: msg.functionCall }],
+      });
+    } else if (msg.functionResponse) {
+      contents.push({
+        role: 'user',
+        parts: [{ functionResponse: msg.functionResponse }],
+      });
     } else {
       contents.push({
         role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
+        parts: [{ text: String(msg.content ?? '') }],
       });
     }
   }
   const payload = {
     contents,
-    generationConfig: {}
+    generationConfig: {},
   };
   if (systemText) {
     payload.systemInstruction = {
-      parts: [{ text: systemText.trim() }]
+      parts: [{ text: systemText.trim() }],
     };
   }
-  if (requireJson) {
+  if (options.requireJson) {
     payload.generationConfig.responseMimeType = 'application/json';
+  }
+  if (Array.isArray(options.tools) && options.tools.length > 0) {
+    payload.tools = [{ functionDeclarations: options.tools }];
   }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
   const response = await fetch(url, {
@@ -184,7 +211,7 @@ async function callGemini(messages, requireJson = false) {
     throw err;
   }
   const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return data.candidates?.[0]?.content ?? { parts: [] };
 }
 
 function handleGeminiError(err, res) {
@@ -328,6 +355,80 @@ async function generateFlashcards(text, cardCount, difficulty) {
   return dedupeCards(allCards).slice(0, cardCount);
 }
 
+const {
+  createToolCatalog,
+  toGeminiFunctionDeclarations,
+  findTool,
+} = require('./utils/toolCatalog');
+const TOOL_CATALOG = createToolCatalog({ generateFlashcards });
+const chatRoutesModule = require('./routes/chats');
+if (typeof chatRoutesModule.setChatToolCatalog === 'function') {
+  chatRoutesModule.setChatToolCatalog(TOOL_CATALOG);
+}
+
+async function runChatWithTools(geminiMessages, uid) {
+  // NOTE: uid is trusted from request body — see auth fix, not in scope here
+  const declarations = toGeminiFunctionDeclarations(TOOL_CATALOG);
+  const conversation = [...geminiMessages];
+  const maxSteps = 6;
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const content = await callGeminiContent(conversation, { tools: declarations });
+    const parts = content.parts || [];
+    const fnPart = parts.find((p) => p.functionCall && p.functionCall.name);
+    const textParts = parts.filter((p) => typeof p.text === 'string' && p.text.trim());
+    const text = textParts.map((p) => p.text).join('\n').trim();
+
+    if (fnPart?.functionCall) {
+      const name = fnPart.functionCall.name;
+      let args = fnPart.functionCall.args || {};
+      if (typeof args === 'string') {
+        try {
+          args = JSON.parse(args);
+        } catch {
+          args = {};
+        }
+      }
+      const tool = findTool(TOOL_CATALOG, name);
+      if (!tool) {
+        conversation.push({ functionCall: fnPart.functionCall });
+        conversation.push({
+          functionResponse: {
+            name,
+            response: { error: `Unknown tool: ${name}` },
+          },
+        });
+        continue;
+      }
+
+      if (tool.isWrite) {
+        const proposal = await tool.handler(uid, args);
+        return {
+          type: 'action',
+          tool: name,
+          args: proposal.args,
+          summary: proposal.summary,
+          assistantText: text || '',
+        };
+      }
+
+      const result = await tool.handler(uid, args);
+      conversation.push({ functionCall: fnPart.functionCall });
+      conversation.push({
+        functionResponse: {
+          name,
+          response: result && typeof result === 'object' ? result : { result },
+        },
+      });
+      continue;
+    }
+
+    return { type: 'text', reply: text || '' };
+  }
+
+  return { type: 'text', reply: '' };
+}
+
 async function extractPdfText(input) {
   const data = toPdfUint8Array(input);
   const parser = new PDFParse({ data });
@@ -392,15 +493,17 @@ app.use(express.json({ limit: `${(Number(process.env.MAX_PDF_MB || 10) + 5)}mb` 
 const profileRoutes = require('./routes/profile');
 const timetableRoutes = require('./routes/timetable');
 const deckRoutes = require('./routes/decks');
-const chatRoutes = require('./routes/chats');
+const chatRoutes = chatRoutesModule;
 const partnerRoutes = require('./routes/partners');
 const roomRoutes = require('./routes/rooms');
+const dashboardRoutes = require('./routes/dashboard');
 app.use('/api/profile', profileRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/decks', deckRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/', (req, res) => {
   res.send('Capingo is running');
@@ -421,8 +524,17 @@ app.post('/api/summarize', async (req, res) => {
   }
 
   const transcript = messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => `${m.role === 'user' ? 'Student' : 'Assistant'}: ${String(m.content)}`)
+    .map((m) => {
+      if (m.role === 'action') {
+        const line = m.summary || m.action?.summary || m.content || 'Completed an in-app action';
+        return `Action: ${String(line)}`;
+      }
+      if (m.role === 'user' || m.role === 'assistant') {
+        return `${m.role === 'user' ? 'Student' : 'Assistant'}: ${String(m.content)}`;
+      }
+      return '';
+    })
+    .filter(Boolean)
     .join('\n\n');
 
   const userContent = existingSummary
@@ -443,7 +555,8 @@ app.post('/api/summarize', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, memorySummary, uid } = req.body;
+  // NOTE: uid is trusted from request body — see auth fix, not in scope here
+  const { messages, memorySummary, uid, chatId } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'Request body must include a non-empty messages array.' });
@@ -473,8 +586,54 @@ app.post('/api/chat', async (req, res) => {
   );
 
   try {
-    const reply = await callGemini(geminiMessages);
-    res.json({ reply });
+    if (!uid) {
+      const reply = await callGemini(geminiMessages);
+      return res.json({ reply });
+    }
+
+    const outcome = await runChatWithTools(geminiMessages, uid);
+
+    if (outcome.type === 'action') {
+      const actionMessage = {
+        id: `msg_action_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        role: 'action',
+        content: '',
+        createdAt: Date.now(),
+        action: {
+          tool: outcome.tool,
+          args: outcome.args,
+          status: 'pending',
+          summary: outcome.summary,
+        },
+      };
+
+      if (chatId) {
+        const Chat = require('./models/chat');
+        const doc = await Chat.findOne({ firebaseUid: uid, chatId });
+        if (doc) {
+          const msgs = [...(doc.messages || [])];
+          if (outcome.assistantText) {
+            msgs.push({
+              id: `msg_${Date.now()}_pre`,
+              role: 'assistant',
+              content: outcome.assistantText,
+              createdAt: Date.now(),
+            });
+          }
+          msgs.push(actionMessage);
+          doc.messages = msgs;
+          doc.updatedAt = Date.now();
+          await doc.save();
+        }
+      }
+
+      return res.json({
+        reply: outcome.assistantText || '',
+        action: actionMessage,
+      });
+    }
+
+    res.json({ reply: outcome.reply || '' });
   } catch (err) {
     return handleGeminiError(err, res);
   }

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const UserProfile = require('../models/userProfile');
 const { assignUniquePartnerCode } = require('../utils/partnerCode');
+const { getQuestXpBoost, applyQuestXpBoost, getPersonalizedQuestRewards, incrementQuestActionCount } = require('../utils/recommendationEngine');
 
 //helper 1
 const isYesterday = (date) => {
@@ -48,7 +49,9 @@ router.get('/:uid', async (req, res) => {
       });
       await profile.save();
       await assignUniquePartnerCode(profile);
-      return res.json(profile);
+      const created = profile.toObject();
+      created.personalizedQuestRewards = getPersonalizedQuestRewards(profile);
+      return res.json(created);
     }
     //login detection (streaks xp and reset quest)
     const lastLogin = new Date(profile.lastLoginDate);
@@ -74,7 +77,9 @@ router.get('/:uid', async (req, res) => {
       await profile.save();
     }
     await assignUniquePartnerCode(profile);
-    res.json(profile);
+    const payload = profile.toObject();
+    payload.personalizedQuestRewards = getPersonalizedQuestRewards(profile);
+    res.json(payload);
   } catch (err) {
     console.error('Error fetching profile:', err);
     res.status(500).json({ error: 'Server error while fetching profile' });
@@ -108,8 +113,11 @@ router.post('/claim-streak', async (req, res) => {
       });
     }
     const currentStreak = profile.streakDays || 1;
-    const xpToAdd = Math.min(currentStreak * 20, 100);
+    const baseXp = Math.min(currentStreak * 20, 100);
+    const boost = await getQuestXpBoost(uid, 'loginStreak');
+    const { xp: xpToAdd, multiplier, boosted } = applyQuestXpBoost(baseXp, boost);
     profile.dailyProgress.streakClaimed += 1;
+    incrementQuestActionCount(profile, 'loginStreak');
     profile.currentXp += xpToAdd;
     let leveledUp = false;
     while (profile.currentXp >= profile.xpToNextLevel) {
@@ -119,11 +127,17 @@ router.post('/claim-streak', async (req, res) => {
       leveledUp = true;
     }
     await profile.save();
+    const bonusNote = boosted ? ` (${multiplier}× neglected-quest bonus)` : '';
+    const out = profile.toObject();
+    out.personalizedQuestRewards = getPersonalizedQuestRewards(profile);
     res.json({
       success: true,
       leveledUp,
-      message: `+${xpToAdd} XP for Day ${currentStreak} Streak!`,
-      profile
+      message: `+${xpToAdd} XP for Day ${currentStreak} Streak!${bonusNote}`,
+      xpBoost: boosted
+        ? { multiplier, neglectedAction: boost.neglectedAction, baseXp }
+        : null,
+      profile: out
     });
   } catch (err) {
     console.error('Error claiming streak:', err);
@@ -155,10 +169,20 @@ router.post('/quest-action', async (req, res) => {
     }
 
     let xpToAdd = 0;
-    let actionName = quest.name;
+    let xpBoost = null;
     if (profile.dailyProgress[quest.key] < quest.limit) {
       profile.dailyProgress[quest.key] += 1;
-      xpToAdd = quest.xp;
+      const boost = await getQuestXpBoost(uid, actionType);
+      const applied = applyQuestXpBoost(quest.xp, boost);
+      xpToAdd = applied.xp;
+      if (applied.boosted) {
+        xpBoost = {
+          multiplier: applied.multiplier,
+          neglectedAction: boost.neglectedAction,
+          baseXp: quest.xp,
+        };
+      }
+      incrementQuestActionCount(profile, actionType);
       profile.questsCompleted = (profile.questsCompleted || 0) + 1;
       profile.questsToday = (profile.questsToday || 0) + 1;
       achievementChanged = true;
@@ -166,11 +190,13 @@ router.post('/quest-action', async (req, res) => {
     //action capped
     if (xpToAdd === 0) {
       if (achievementChanged) await profile.save();
+      const capped = profile.toObject();
+      capped.personalizedQuestRewards = getPersonalizedQuestRewards(profile);
       return res.json({ 
         success: true, 
         leveledUp: false, 
         message: 'Daily cap reached for this quest! Come back tomorrow.', 
-        profile 
+        profile: capped 
       });
     }
     //level up logic
@@ -183,11 +209,15 @@ router.post('/quest-action', async (req, res) => {
       leveledUp = true;
     }
     await profile.save();
+    const bonusNote = xpBoost ? ` (${xpBoost.multiplier}× neglected-quest bonus)` : '';
+    const out = profile.toObject();
+    out.personalizedQuestRewards = getPersonalizedQuestRewards(profile);
     res.json({
       success: true,
       leveledUp,
-      message: `+${xpToAdd} XP for: ${quest.name}`,
-      profile
+      message: `+${xpToAdd} XP for: ${quest.name}${bonusNote}`,
+      xpBoost,
+      profile: out
     });
   } catch (err) {
     console.error('Error processing quest action:', err);

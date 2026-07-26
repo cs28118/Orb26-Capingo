@@ -1,6 +1,6 @@
 # Testing: Dashboard
 
-**Scope:** `/home` profile card, quests preview, partner code, achievements preview, study snapshot widgets  
+**Scope:** `/home` profile card, quests preview, partner code, achievements preview, study snapshot widgets, For you recommendations  
 **CI:** [`docs/ci.md`](../ci.md)
 
 ## Unit test coverage
@@ -8,6 +8,7 @@
 | Module | Tests | Notes |
 |--------|------:|-------|
 | `dashboardWidgets.ts` | 7 | Upcoming todos sort/cap, due decks summary, recent chats/rooms, relative time |
+| `recommendationEngine` helpers | via integration | account age, onboarding gate |
 
 ## Integration tests
 
@@ -15,6 +16,8 @@
 |------|--------|
 | `GET /api/profile/:uid` creates profile + `CAPY-` partner code | Automated (`data.test.js`) |
 | Timetable / decks / chats / rooms GET (widget sources) | Covered in feature integration suites |
+| `GET /api/dashboard/recommendations/:uid` onboarding + adaptive | Automated (`recommendations.test.js`) |
+| `POST /api/dashboard/recommendations/dismiss` same-day hide | Automated (`recommendations.test.js`) |
 
 ## End-to-end testing
 
@@ -22,6 +25,7 @@
 |---------|--------|
 | Partner code + quests + XP | Automated |
 | Study snapshot widgets (tasks, due cards, chats, rooms) | Automated |
+| For you / Get started tip + CTA | Automated (mocked recommendations) |
 | Claim streak → ✓ Claimed | Automated |
 | Nav to Timetable / Flashcard / Partners / Rooms | Automated |
 

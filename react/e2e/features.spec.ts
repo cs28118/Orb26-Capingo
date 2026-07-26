@@ -25,6 +25,8 @@ test.describe('Feature matrix — E2E / edge / failure', () => {
     await expect(page.getByRole('heading', { name: /recent chats/i })).toBeVisible();
     await expect(page.getByText(/E2E chat/i).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: /study rooms/i }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /for you|get started/i })).toBeVisible();
+    await expect(page.getByText(/flashcard deck for it yet|Create a deck/i).first()).toBeVisible();
     await shot(page, 'dashboard', 'e2e-happy');
     await shot(page, 'dashboard', 'e2e-widgets');
     await shot(page, 'xp-levels', 'e2e-dashboard-xp');
@@ -86,9 +88,9 @@ test.describe('Feature matrix — E2E / edge / failure', () => {
   test('Chatbot: shell + mocked AI reply', async ({ page }) => {
     await installApiMocks(page);
     await page.goto('/home/chatbot');
-    await expect(page.getByText(/Ask Capingo AI|Need help with anything/i).first()).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(
+      page.getByText(/quick thought when you have a minute|Ask Capingo AI|Need help with anything/i).first()
+    ).toBeVisible({ timeout: 30_000 });
     await shot(page, 'chatbot', 'e2e-shell');
     await page.locator('.chat-input-row textarea').fill('What is osmosis?');
     await page.locator('.chat-input-row textarea').press('Enter');

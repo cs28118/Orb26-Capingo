@@ -12,6 +12,7 @@ function createTestApp() {
   app.use('/api/timetable', require('../../routes/timetable'));
   app.use('/api/profile', require('../../routes/profile'));
   app.use('/api/chats', require('../../routes/chats'));
+  app.use('/api/dashboard', require('../../routes/dashboard'));
 
   return app;
 }

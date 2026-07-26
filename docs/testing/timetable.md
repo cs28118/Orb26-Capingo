@@ -20,6 +20,7 @@
 
 | Journey | Status |
 |---------|--------|
+| Timetable page loads with Add task / Generate | Automated (bypass auth + API mocks) |
 | Add task with subject → appears on list | Manual |
 | Generate timetable with empty tasks | Manual (edge) |
 

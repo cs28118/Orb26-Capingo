@@ -21,6 +21,7 @@
 
 | Journey | Status |
 |---------|--------|
+| Dashboard shows XP / level under bypass | Automated (bypass auth + API mocks) |
 | Toast on quest XP from flashcard study | Manual |
 | Level-up toast | Manual |
 | Claim streak from Dashboard | Manual |

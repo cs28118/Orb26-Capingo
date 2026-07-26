@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-import { auth } from '../firebaseAuth/firebase';
 import { Outlet, NavLink, Navigate, useLocation } from 'react-router';
+import { subscribeToAuth, signOutCurrentUser, type AuthUser } from '../firebaseAuth/authSubscribe';
 import './home.css';
 import ToastContainer from '../components/Noti';
 import type { userData } from '../types/types';
 
 export default function Home() {
     const [userData, setUserData] = useState<userData | null>(null);
-    const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+    const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const location = useLocation();
     const isChatbot = location.pathname.includes('/chatbot');
@@ -18,7 +16,7 @@ export default function Home() {
     const isFullBleed = isChatbot || isFlashcard || isSpace;
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = subscribeToAuth((currentUser) => {
             setFirebaseUser(currentUser);
             setLoading(false);
         });
@@ -47,7 +45,7 @@ export default function Home() {
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await signOutCurrentUser();
             console.log("Logged out successfully!");
         } catch (err) {
             console.error("Error signing out:", err);

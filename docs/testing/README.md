@@ -42,7 +42,7 @@ npm run test:e2e
 |------|--------|
 | Unit test coverage | Done — frontend 18; backend helpers 7 |
 | Integration tests | Done — rooms/partners/decks/timetable/chats/profile (**30** backend tests) |
-| End-to-end testing | Done — Playwright 3 login/auth smokes; fuller journeys manual |
+| End-to-end testing | Done — Playwright **10 passed** (feature journeys + auth bypass); login-form-only test skipped under bypass |
 | Edge cases | Tables in each feature doc |
 | Failure cases | Tables in each feature doc |
 | Screenshots of test results | [`evidence/`](./evidence/) (logs + `e2e/login-page.png`) |

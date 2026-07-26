@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router';
+import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import './collaboration.css';
 import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
@@ -90,8 +90,7 @@ export default function Collaboration() {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = subscribeToAuth(async (user) => {
       setFirebaseUser(user);
       if (!user) {
         setIsLoading(false);

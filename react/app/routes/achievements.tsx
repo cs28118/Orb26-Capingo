@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './achievements.css';
 import type { achievement } from '../types/types';
+import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 
 export default function Achievements() {
   const [unlockedIds, setUnlockedIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = subscribeToAuth(async (user) => {
       if (user) {
         try {
           const response = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/${user.uid}`);

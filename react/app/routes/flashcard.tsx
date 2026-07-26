@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import './flashcard.css';
 import { triggerToast } from '../components/NotiHelper';
-import type { User } from 'firebase/auth';
 import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 import {
   buildStudyQueue,
@@ -178,11 +177,10 @@ export default function Flashcards() {
   const [sessionReviews, setSessionReviews] = useState(0);
   const xpAwardedRef = useRef(false);
 
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       setFirebaseUser(user);
       if (!user) setIsLoadingDecks(false);
     });

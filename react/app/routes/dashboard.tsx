@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router';
 import { allAchievements } from '../utils/achievements';
 import BadgeIcon from '../components/BadgeIcon';
 import './dashboard.css';
 import { triggerToast } from '../components/NotiHelper';
 import type { userData } from '../types/types';
-import type { User } from 'firebase/auth';
+import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import type { achievement } from '../types/types';
 import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
@@ -21,7 +20,7 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<userData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [selectedProfilePic, setSelectedProfilePic] = useState('');
@@ -29,8 +28,7 @@ export default function Dashboard() {
   
   //auth state
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       if (user) {
         setFirebaseUser(user);
       } else {

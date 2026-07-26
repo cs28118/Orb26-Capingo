@@ -21,6 +21,7 @@
 
 | Journey | Status |
 |---------|--------|
+| Capingo AI shell renders | Automated (bypass auth + API mocks) |
 | New chat → send → AI reply | Manual (needs Ollama or Gemini) |
 | Memory summarize on long thread | Manual |
 

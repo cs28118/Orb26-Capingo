@@ -2,10 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:5173',
@@ -19,7 +19,12 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
-      // Placeholder Firebase config so the login route can mount in CI/smoke without secrets
+      VITE_E2E_BYPASS_AUTH: '1',
+      VITE_E2E_UID: 'e2e-tester',
+      VITE_E2E_NAME: 'E2E Tester',
+      VITE_E2E_EMAIL: 'e2e@capingo.test',
+      VITE_API_URL: 'http://127.0.0.1:5999',
+      // Placeholder Firebase config so modules that still import firebase can init
       VITE_FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyE2ESmokeTestKey0000000000000000000',
       VITE_FIREBASE_AUTH_DOMAIN: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'capingo-e2e.firebaseapp.com',
       VITE_FIREBASE_PROJECT_ID: process.env.VITE_FIREBASE_PROJECT_ID || 'capingo-e2e',

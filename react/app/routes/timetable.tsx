@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import './timetable.css';
 import { triggerToast } from '../components/NotiHelper';
 type PriorityLevel = 'High' | 'Medium' | 'Low';
@@ -231,8 +231,7 @@ export default function Timetable() {
   const formattedTime = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       setFirebaseUser(user);
       if (!user) setIsLoading(false);
     });

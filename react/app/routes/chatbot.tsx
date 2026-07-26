@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
 import { triggerToast } from '../components/NotiHelper';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import { checkAndUnlockAchievements } from '../utils/achievementCheck';
 
 const STORAGE_KEY = 'capingo-chats';
@@ -320,11 +319,10 @@ export default function Chatbot() {
   const [saveError, setSaveError] = useState('');
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       setFirebaseUser(user);
       if (!user) setIsLoadingChats(false);
     });

@@ -21,7 +21,7 @@
 
 | Journey | Status |
 |---------|--------|
-| View all achievements page | Manual (needs auth) |
+| Achievements badge grid renders | Automated (bypass auth + API mocks) |
 | Streak milestone unlock | Manual |
 
 ## Edge cases

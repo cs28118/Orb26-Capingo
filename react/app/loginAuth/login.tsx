@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
-        GoogleAuthProvider, signInWithPopup,
-        onAuthStateChanged
+        GoogleAuthProvider, signInWithPopup
         } from 'firebase/auth';
 import { auth } from '../firebaseAuth/firebase';
+import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import { useNavigate } from "react-router";
 import './login.css';
 
@@ -71,7 +71,7 @@ export default function Login() {
     };
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = subscribeToAuth((currentUser) => {
             if (currentUser) {
                 console.log("Logged in! Redirecting...");
                 navigate("/home", { replace: true });

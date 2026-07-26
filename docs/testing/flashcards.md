@@ -23,6 +23,7 @@ Evidence: [`evidence/unit/frontend-vitest.txt`](./evidence/unit/frontend-vitest.
 
 | Journey | Status |
 |---------|--------|
+| Deck library with due badge | Automated (bypass auth + API mocks) |
 | Study due → flip → rate | Manual |
 | Cram all | Manual |
 | PDF generate | Manual (AI) |

@@ -32,6 +32,7 @@
 
 | Journey | Status |
 |---------|--------|
+| Friends + rooms list render | Automated (bypass auth + API mocks) |
 | Create room UI → see code | Manual |
 | Live Socket.IO message | Manual (needs two clients) |
 | Announcements / resources tabs | Manual |

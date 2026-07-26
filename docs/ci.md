@@ -14,7 +14,7 @@ Capingo uses **one shared CI pipeline** for the whole repository (not one pipeli
 |-----|----------------|
 | **Frontend** | `npm ci` → typecheck → Vitest unit tests + coverage |
 | **Backend** | `npm ci` → Vitest unit + integration tests + coverage |
-| **E2E** | Playwright smoke (login page) after frontend job |
+| **E2E** | Playwright feature journeys (auth bypass + API mocks) after frontend job |
 
 Coverage HTML and the Playwright report are uploaded as **Actions artifacts** (14-day retention).
 
@@ -48,9 +48,9 @@ npm run test:e2e
 Current CI does **not** require MongoDB Atlas, Firebase, or Gemini keys:
 
 - Backend integration tests use **mongodb-memory-server**
-- E2E smoke only loads the public login page via Vite
+- E2E uses `VITE_E2E_BYPASS_AUTH=1` (stub user) + Playwright route mocks for `/api/**`
 
-Full multi-user E2E (Partners → Rooms → live chat) remains a **local / optional** suite until test accounts are added as GitHub Actions secrets.
+Full multi-user E2E (Partners → Rooms → live Socket.IO chat) remains a **local / optional** suite until test accounts are added as GitHub Actions secrets.
 
 ## Evidence
 

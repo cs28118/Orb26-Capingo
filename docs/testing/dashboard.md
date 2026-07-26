@@ -19,8 +19,8 @@
 
 | Journey | Status |
 |---------|--------|
-| Open dashboard after login | Manual (needs Firebase auth) |
-| See partner code / quests | Manual |
+| Dashboard partner code + quests | Automated (bypass auth + API mocks) |
+| Claim streak / edit profile toasts | Manual |
 
 ## Edge cases
 

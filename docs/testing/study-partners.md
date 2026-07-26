@@ -25,6 +25,7 @@
 
 | Journey | Status |
 |---------|--------|
+| Subjects + suggestions list render | Automated (bypass auth + API mocks) |
 | Message → `/home/space?dm=` | Manual |
 | Opt out of suggestions | Manual |
 

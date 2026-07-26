@@ -20,9 +20,9 @@
 
 | Journey | Tool | Status |
 |---------|------|--------|
-| Login page renders Capingo branding + Enter Capingo button | Playwright | Automated (CI) |
-| Toggle Create an account → email/password fields | Playwright | Automated (CI) |
-| `/home` without auth does not Application Error | Playwright | Automated (CI) |
+| With `VITE_E2E_BYPASS_AUTH`, `/` enters signed-in shell | Playwright | Automated (CI) |
+| `/home` loads under bypass (no Application Error) | Playwright | Automated (CI) |
+| Login form branding (bypass off only) | Playwright | Skipped in CI bypass mode |
 | Full email/Google login | Manual / needs real Firebase keys | Documented |
 
 ## Edge cases

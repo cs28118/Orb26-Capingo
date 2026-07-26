@@ -365,7 +365,7 @@ Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one 
 |------|--------|
 | **Unit test coverage** | Frontend: Vitest for SM-2 + achievements (18 tests). Backend: partner/room codes, subject sync, canonical pair (7 tests) |
 | **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms (incl. admin/announcements/resources), partners, decks, timetable, chats CRUD, profile quests/streak (**30** tests total) |
-| **End-to-end testing** | Playwright: login branding, register toggle, `/home` no Application Error (CI). Fuller signed-in journeys remain manual (see feature docs) |
+| **End-to-end testing** | Playwright: **10** signed-in feature journeys (Dashboard, Timetable, Chatbot, Flashcards, Partners, Rooms, Achievements, nav) via `VITE_E2E_BYPASS_AUTH` + API mocks; login form smoke skipped when bypass is on |
 | **Edge cases** | Documented per feature (e.g. new-card queue limit, DM find-or-create, last admin leave, quest daily cap) |
 | **Failure cases** | Documented + automated where possible (403 non-partner DM, 404 bad room/partner code, 400 invalid payloads) |
 | **Screenshots of test results** | [`docs/testing/evidence/`](docs/testing/evidence/) — unit/integration logs, [`e2e/login-page.png`](docs/testing/evidence/e2e/login-page.png) |

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { useSearchParams } from 'react-router';
 import { io, Socket } from 'socket.io-client';
+import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import './space.css';
 
 type Friend = {
@@ -126,8 +126,7 @@ export default function Space() {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = subscribeToAuth(async (user) => {
       setFirebaseUser(user);
       if (!user) {
         setIsLoading(false);

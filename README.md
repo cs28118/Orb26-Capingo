@@ -369,7 +369,7 @@ Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one 
 | **Edge cases** | Documented per feature (e.g. new-card queue limit, DM find-or-create, last admin leave, quest daily cap) |
 | **Failure cases** | Documented + automated where possible (403 non-partner DM, 404 bad room/partner code, 400 invalid payloads) |
 | **Screenshots of test results** | [`docs/testing/evidence/`](docs/testing/evidence/) — unit/integration logs, [`e2e/login-page.png`](docs/testing/evidence/e2e/login-page.png) |
-| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green Actions screenshot: [`docs/testing/evidence/ci/`](docs/testing/evidence/ci/) (add after first push) |
+| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green run evidence: [`docs/testing/evidence/ci/actions-green.png`](docs/testing/evidence/ci/actions-green.png) (CI #1 on `feature-extensions`, commit `61ff012`) |
 | **Code coverage reports** | `npm run test:coverage` in `react/` and `backend/` → HTML under `*/coverage` (gitignored). Summaries: [`docs/testing/evidence/coverage/`](docs/testing/evidence/coverage/) |
 
 ### Run tests locally

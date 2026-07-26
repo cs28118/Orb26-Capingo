@@ -46,7 +46,7 @@ npm run test:e2e
 | Edge cases | Tables in each feature doc |
 | Failure cases | Tables in each feature doc |
 | Screenshots of test results | [`evidence/`](./evidence/) (logs + `e2e/login-page.png`) |
-| CI pipeline passing | Workflow added — capture Actions green screenshot after push ([`evidence/ci/`](./evidence/ci/)) |
+| CI pipeline passing | Passing — [`evidence/ci/actions-green.png`](./evidence/ci/actions-green.png) (CI #1, `61ff012`) |
 | Code coverage reports | Summaries in [`evidence/coverage/`](./evidence/coverage/); HTML via `npm run test:coverage` |
 
 ## Evidence layout

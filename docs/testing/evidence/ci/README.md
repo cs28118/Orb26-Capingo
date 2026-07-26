@@ -1,15 +1,12 @@
-# CI evidence placeholder
+# CI evidence
 
-After the first green GitHub Actions run:
+**Status:** passing  
+**Workflow:** CI #1  
+**Commit:** `61ff012` — docs(testing): include coverage evidence summaries in repo  
+**Branch:** `feature-extensions`  
+**Actor:** AndreiYo037  
+**Duration:** 1m 21s  
 
-1. Open the successful **CI** workflow run
-2. Screenshot the jobs list (frontend / backend / e2e all green)
-3. Save as `actions-green.png` in this folder
+Screenshot: [actions-green.png](./actions-green.png)
 
-Local verification (2026-07-26):
-
-- Frontend Vitest: pass
-- Backend Vitest: pass  
-- Playwright login smoke: pass
-
-Workflow file: [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)
+Actions: https://github.com/cs28118/Orb26-Capingo/actions

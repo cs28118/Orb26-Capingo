@@ -20,7 +20,9 @@
 
 | Journey | Tool | Status |
 |---------|------|--------|
-| Login page renders Capingo branding + Enter Capingo button | Playwright `e2e/login.spec.ts` | Automated (CI) |
+| Login page renders Capingo branding + Enter Capingo button | Playwright | Automated (CI) |
+| Toggle Create an account → email/password fields | Playwright | Automated (CI) |
+| `/home` without auth does not Application Error | Playwright | Automated (CI) |
 | Full email/Google login | Manual / needs real Firebase keys | Documented |
 
 ## Edge cases

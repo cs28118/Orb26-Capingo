@@ -7,35 +7,37 @@
 
 | Module | Tests | Notes |
 |--------|------:|-------|
-| Progress keyword helper (in index) | 0 | Not extracted; Tier C |
+| Progress keyword helper (in index) | 0 | Not extracted; AI path not unit-tested |
 
 ## Integration tests
 
 | Case | Status |
 |------|--------|
-| Chat CRUD Mongo routes | Not yet automated (AI-dependent send path) |
+| Create / list / get / update / delete chat | Automated (`chats-profile.test.js`) |
+| PUT without messages array → 400 | Automated |
+| Missing chat → 404 | Automated |
 
 ## End-to-end testing
 
 | Journey | Status |
 |---------|--------|
-| New chat → send → reply | Manual (needs Ollama or Gemini) |
+| New chat → send → AI reply | Manual (needs Ollama or Gemini) |
 | Memory summarize on long thread | Manual |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
-| New chat fresh memory | No cross-thread carry-over | Manual |
-| LocalStorage → Mongo migration | On first signed-in load | Manual |
+| Create with existing chatId | Returns existing | Code path |
+| Pin chat on save | `pinned: true` persisted | Automated |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
 | Backend/AI down | Error in chat UI | Manual |
-| Missing GEMINI_API_KEY | Backend error | Manual |
+| Invalid save body | 400 | Automated |
 
 ## Screenshots / CI / coverage
 
-No automated chatbot suite yet. CI does not call AI APIs. Documented for report honesty.
+[`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). `routes/chats.js` ~78% statements in backend coverage.

@@ -21,6 +21,7 @@ export default defineConfig({
         'routes/decks.js',
         'routes/timetable.js',
         'routes/profile.js',
+        'routes/chats.js',
       ],
     },
   },

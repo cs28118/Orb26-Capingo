@@ -22,6 +22,11 @@
 | Invite accepted partner | Automated |
 | Invite non-partner → 403 | Automated |
 | Last admin leave → promote remaining member | Automated |
+| Promote member | Automated |
+| Kick member (admin) | Automated |
+| Non-admin kick → 403 | Automated |
+| Announcement admin-only | Automated |
+| Resource http(s) only; member can add | Automated |
 
 ## End-to-end testing
 

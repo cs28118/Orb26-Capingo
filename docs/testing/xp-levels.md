@@ -15,6 +15,7 @@
 |------|--------|
 | `reviewDeck` awards XP then hits daily cap (limit 2) | Automated |
 | Invalid `actionType` → 400 | Automated |
+| Claim streak once, then already-claimed message | Automated |
 
 ## End-to-end testing
 
@@ -22,6 +23,7 @@
 |---------|--------|
 | Toast on quest XP from flashcard study | Manual |
 | Level-up toast | Manual |
+| Claim streak from Dashboard | Manual |
 
 ## Edge cases
 

@@ -40,9 +40,9 @@ npm run test:e2e
 
 | Item | Status |
 |------|--------|
-| Unit test coverage | Done — frontend `sm2` (12); backend helpers (7) |
-| Integration tests | Done — rooms, partners, decks, timetable, profile quests (24 backend tests total) |
-| End-to-end testing | Done — Playwright login smoke; fuller journeys manual (see feature docs) |
+| Unit test coverage | Done — frontend 18; backend helpers 7 |
+| Integration tests | Done — rooms/partners/decks/timetable/chats/profile (**30** backend tests) |
+| End-to-end testing | Done — Playwright 3 login/auth smokes; fuller journeys manual |
 | Edge cases | Tables in each feature doc |
 | Failure cases | Tables in each feature doc |
 | Screenshots of test results | [`evidence/`](./evidence/) (logs + `e2e/login-page.png`) |

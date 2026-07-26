@@ -363,9 +363,9 @@ Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one 
 
 | Item | Status |
 |------|--------|
-| **Unit test coverage** | Frontend: Vitest for SM-2 spaced repetition (`sm2.ts`, 12 tests). Backend: partner/room codes, subject sync, canonical pair (7 tests) |
-| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms, partners, decks (incl. SRS fields), timetable subject sync, profile quests (24 tests total) |
-| **End-to-end testing** | Playwright login-page smoke (CI). Fuller journeys (Partners → Rooms, flashcard study, chatbot) documented as manual / local in feature docs |
+| **Unit test coverage** | Frontend: Vitest for SM-2 + achievements (18 tests). Backend: partner/room codes, subject sync, canonical pair (7 tests) |
+| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms (incl. admin/announcements/resources), partners, decks, timetable, chats CRUD, profile quests/streak (**30** tests total) |
+| **End-to-end testing** | Playwright: login branding, register toggle, `/home` no Application Error (CI). Fuller signed-in journeys remain manual (see feature docs) |
 | **Edge cases** | Documented per feature (e.g. new-card queue limit, DM find-or-create, last admin leave, quest daily cap) |
 | **Failure cases** | Documented + automated where possible (403 non-partner DM, 404 bad room/partner code, 400 invalid payloads) |
 | **Screenshots of test results** | [`docs/testing/evidence/`](docs/testing/evidence/) — unit/integration logs, [`e2e/login-page.png`](docs/testing/evidence/e2e/login-page.png) |

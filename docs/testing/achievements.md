@@ -5,9 +5,10 @@
 
 ## Unit test coverage
 
-| Module | Tests | Notes |
-|--------|------:|-------|
-| `achievementCheck.ts` / `achievements.ts` | 0 | Planned; currently not wired fully |
+| Module | Tests | Status |
+|--------|------:|--------|
+| `achievements.ts` conditions | 4 | Automated (streak/level/flags/Welcome) |
+| `achievementCheck.ts` | 2 | Automated (new unlocks + skip owned; toast mocked) |
 
 ## Integration tests
 
@@ -20,21 +21,22 @@
 
 | Journey | Status |
 |---------|--------|
-| View all achievements page | Manual |
+| View all achievements page | Manual (needs auth) |
 | Streak milestone unlock | Manual |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
+| Already-owned badges skipped | Not re-toasted | Automated |
 | Locked badges visible but not unlockable yet | UI shows locked | Manual |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
-| Unlock without criteria | Should no-op / reject | Not fully automated |
+| Unlock without criteria | Condition false → not unlocked | Automated (unit) |
 
 ## Screenshots / CI / coverage
 
-Documented as Tier C (smoke + manual). See testing README depth tiers.
+[`evidence/unit/frontend-vitest.txt`](./evidence/unit/frontend-vitest.txt). `achievementCheck.ts` at high coverage in frontend report.

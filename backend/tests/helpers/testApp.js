@@ -11,6 +11,7 @@ function createTestApp() {
   app.use('/api/decks', require('../../routes/decks'));
   app.use('/api/timetable', require('../../routes/timetable'));
   app.use('/api/profile', require('../../routes/profile'));
+  app.use('/api/chats', require('../../routes/chats'));
 
   return app;
 }

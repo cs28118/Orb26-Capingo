@@ -3,17 +3,16 @@
 **Date:** 2026-07-26  
 **Command:** `npm run test:coverage` in `backend/`
 
-Approximate from last local run:
-
-| Area | Statements |
-|------|------------|
-| Overall (included paths) | ~45% |
+| Area | Approx. statements |
+|------|-------------------|
+| Overall (included paths) | ~56% |
 | `utils/subjectSync.js` | ~97% lines |
-| `utils/partnerCode.js` | ~78% |
+| `routes/chats.js` | ~78% |
 | `routes/decks.js` | ~75% |
+| `routes/rooms.js` | ~49% (admin/resources/announcements covered; socket not) |
 | `routes/partners.js` | ~54% |
-| `routes/rooms.js` | ~31% (many admin/resource paths untested) |
+| `routes/profile.js` | ~45% |
+
+**30** automated backend tests (unit + integration).
 
 CI uploads `backend/coverage` as artifact `coverage-backend`.
-
-Honest note: UI-heavy and Socket.IO paths lower overall %. Feature-critical helpers and core room/partner flows are the meaningful signal.

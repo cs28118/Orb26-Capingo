@@ -1,42 +1,52 @@
 # Testing: Achievements
 
-**Scope:** Achievement unlocks + `/home/achievements` grid  
+**Scope:** Achievement unlocks + `/home/achievements` grid + wired feature flags  
 **CI:** [`docs/ci.md`](../ci.md)
 
 ## Unit test coverage
 
 | Module | Tests | Status |
 |--------|------:|--------|
-| `achievements.ts` conditions | 4 | Automated (streak/level/flags/Welcome) |
-| `achievementCheck.ts` | 2 | Automated (new unlocks + skip owned; toast mocked) |
+| `achievements.ts` conditions | streak/level/flags/Welcome/Data miner/Killer Quest | Automated |
+| `achievementCheck.ts` | new unlocks + skip owned; toast mocked | Automated |
 
 ## Integration tests
 
 | Case | Status |
 |------|--------|
-| New profile includes Welcome achievement | Automated (profile create) |
-| Quest actions set feature flags (e.g. helloCapy) | Partial via quest-action |
+| New profile includes Welcome achievement | Automated |
+| `chatMessage` → `helloCapy` | Automated |
+| `createDeck` → `deckBuilder` + `decksCreated++` | Automated |
+| Profile update → `instantiatedIndentity` | Automated |
+| Timetable achievement types → scheduler/auto/drag/stack | Automated |
+| Partner accept → `connectedComponent` both users | Automated |
+| Unlock-achievements idempotent | Automated |
 
 ## End-to-end testing
 
 | Journey | Status |
 |---------|--------|
-| Achievements badge grid renders | Automated (bypass auth + API mocks) |
-| Streak milestone unlock | Manual |
+| Achievements badge grid renders | Automated |
+| Locked + unlocked badges together | Automated |
+| Toast on first unlock after action | Manual / covered via unit toast mock |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
 | Already-owned badges skipped | Not re-toasted | Automated |
-| Locked badges visible but not unlockable yet | UI shows locked | Manual |
+| Locked badges visible | UI shows locked | Automated |
+| Flag already true | Idempotent server write | Automated |
+| Data miner at exactly 5 decks | Unlocks (`>= 5`) | Automated |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
 | Unlock without criteria | Condition false → not unlocked | Automated (unit) |
+| Invalid timetable-achievement type | 400 | Automated |
 
-## Screenshots / CI / coverage
+## Screenshots
 
-[`evidence/unit/frontend-vitest.txt`](./evidence/unit/frontend-vitest.txt). `achievementCheck.ts` at high coverage in frontend report.
+[`evidence/features/achievements/`](./evidence/features/achievements/)  
+[`results.txt`](./evidence/features/achievements/results.txt)

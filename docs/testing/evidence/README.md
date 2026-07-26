@@ -1,34 +1,41 @@
 # Test evidence — summaries
 
-Generated locally on 2026-07-26 (feature E2E expansion).
+Generated locally on 2026-07-26 (full per-feature E2E / edge / failure matrix).
 
-## Unit (frontend)
+## Suite totals
 
-- Command: `cd react && npm run test:coverage`
-- Result: **18 passed** (`sm2` + achievements)
-- Log: [`unit/frontend-vitest.txt`](./unit/frontend-vitest.txt)
+| Suite | Result |
+|-------|--------|
+| Frontend unit | **18 passed** |
+| Backend unit + integration | **33 passed** |
+| Playwright E2E | **22 passed** |
 
-## Integration + unit (backend)
+## Per-feature screenshots + results
 
-- Command: `cd backend && npm run test:coverage`
-- Result: **30 passed** (6 files)
-- Log: [`integration/backend-vitest.txt`](./integration/backend-vitest.txt)
+Browse [`features/`](./features/) — each feature folder has a detailed **`results.txt`** (unit, integration, E2E, edge cases, failure cases, and what every PNG means) plus happy/edge/failure screenshots.
 
-## E2E
+| Feature | Folder |
+|---------|--------|
+| Sign in & accounts | [`features/auth-accounts/`](./features/auth-accounts/) |
+| Dashboard | [`features/dashboard/`](./features/dashboard/) |
+| XP & levels | [`features/xp-levels/`](./features/xp-levels/) |
+| Achievements | [`features/achievements/`](./features/achievements/) |
+| Timetable | [`features/timetable/`](./features/timetable/) |
+| Chatbot | [`features/chatbot/`](./features/chatbot/) |
+| Flashcards | [`features/flashcards/`](./features/flashcards/) |
+| Study Partners | [`features/study-partners/`](./features/study-partners/) |
+| Study Rooms | [`features/study-rooms/`](./features/study-rooms/) |
 
-- Command: `cd react && npm run test:e2e`
-- Result: **10 passed**, 1 skipped (login form when bypass on)
-- Auth: `VITE_E2E_BYPASS_AUTH=1` stub user + Playwright API mocks (no Firebase/Mongo required in CI)
-- Screenshots:
-  - [`e2e/dashboard.png`](./e2e/dashboard.png)
-  - [`e2e/timetable.png`](./e2e/timetable.png)
-  - [`e2e/chatbot.png`](./e2e/chatbot.png)
-  - [`e2e/flashcards.png`](./e2e/flashcards.png)
-  - [`e2e/study-partners.png`](./e2e/study-partners.png)
-  - [`e2e/study-rooms.png`](./e2e/study-rooms.png)
-  - [`e2e/achievements.png`](./e2e/achievements.png)
+**Results board (all features):** [`features/results-board.png`](./features/results-board.png)
+
+Regenerate board: `node scripts/write-feature-evidence.mjs`
+
+## Unit / integration logs
+
+- [`unit/frontend-vitest.txt`](./unit/frontend-vitest.txt)
+- [`integration/backend-vitest.txt`](./integration/backend-vitest.txt)
+- [`e2e/playwright-log.txt`](./e2e/playwright-log.txt)
 
 ## CI pipeline passing
 
 - Screenshot: [`ci/actions-green.png`](./ci/actions-green.png)
-- Re-check Actions after each push to `feature-extensions`

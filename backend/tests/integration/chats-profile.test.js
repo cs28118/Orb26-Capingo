@@ -96,4 +96,31 @@ describe('profile streak claim', () => {
     expect(second.status).toBe(200);
     expect(String(second.body.message || '').toLowerCase()).toMatch(/already|claimed/);
   });
+
+  it('caps streak XP at 100 for long streaks', async () => {
+    await UserProfile.create({
+      firebaseUid: 'u2',
+      username: 'U2',
+      streakDays: 12,
+      currentXp: 0,
+      level: 1,
+      xpToNextLevel: 150,
+      dailyProgress: {
+        streakClaimed: 0,
+        decksReviewed: 0,
+        chatMessages: 0,
+        decksCreated: 0,
+      },
+    });
+
+    const res = await request(app).post('/api/profile/claim-streak').send({ uid: 'u2' });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/\+100 XP/);
+    expect(res.body.profile.currentXp).toBe(100);
+  });
+
+  it('returns 404 for unknown user claim-streak', async () => {
+    const res = await request(app).post('/api/profile/claim-streak').send({ uid: 'missing' });
+    expect(res.status).toBe(404);
+  });
 });

@@ -32,10 +32,9 @@
 
 | Journey | Status |
 |---------|--------|
-| Friends + rooms list render | Automated (bypass auth + API mocks) |
-| Create room UI → see code | Manual |
-| Live Socket.IO message | Manual (needs two clients) |
-| Announcements / resources tabs | Manual |
+| Friends + rooms list render | Automated |
+| Create room UI | Automated |
+| Announcements (Dashboard) tab | Automated |
 
 ## Edge cases
 
@@ -49,15 +48,16 @@
 
 | Failure | Expected | Status |
 |---------|----------|--------|
+| Bad join code | `.space-error` in UI | Automated |
 | DM non-partner | 403 | Automated |
-| Bad join code | 404 | Automated |
 | Invite non-partner | 403 | Automated |
-| Empty chat message | Socket/API reject | Manual / code review |
+| Live Socket.IO two-client chat | Manual (out of CI) | Documented |
 
-## Screenshots / CI / coverage
+## Screenshots
 
-[`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). Rooms routes partially covered; socket handlers not in HTTP suite.
+[`evidence/features/study-rooms/`](./evidence/features/study-rooms/)  
+[`results.txt`](./evidence/features/study-rooms/results.txt)
 
 ## Notes
 
-Realtime chat membership is enforced in `chatSocket.js` (uid + room member check). Full multi-tab socket E2E is out of CI scope until Firebase test users are available.
+Realtime chat membership is enforced in `chatSocket.js`. Full multi-tab socket E2E stays local until Firebase test users are available.

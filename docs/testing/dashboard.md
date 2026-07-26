@@ -1,43 +1,50 @@
 # Testing: Dashboard
 
-**Scope:** `/home` profile card, quests preview, partner code, achievements preview  
+**Scope:** `/home` profile card, quests preview, partner code, achievements preview, study snapshot widgets  
 **CI:** [`docs/ci.md`](../ci.md)
 
 ## Unit test coverage
 
 | Module | Tests | Notes |
 |--------|------:|-------|
-| — | 0 | UI + profile API; covered via profile integration |
+| `dashboardWidgets.ts` | 7 | Upcoming todos sort/cap, due decks summary, recent chats/rooms, relative time |
 
 ## Integration tests
 
 | Case | Status |
 |------|--------|
 | `GET /api/profile/:uid` creates profile + `CAPY-` partner code | Automated (`data.test.js`) |
+| Timetable / decks / chats / rooms GET (widget sources) | Covered in feature integration suites |
 
 ## End-to-end testing
 
 | Journey | Status |
 |---------|--------|
-| Dashboard partner code + quests | Automated (bypass auth + API mocks) |
-| Claim streak / edit profile toasts | Manual |
+| Partner code + quests + XP | Automated |
+| Study snapshot widgets (tasks, due cards, chats, rooms) | Automated |
+| Claim streak → ✓ Claimed | Automated |
+| Nav to Timetable / Flashcard / Partners / Rooms | Automated |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
-| First visit creates Welcome achievement | Profile seed includes achievement id 1 | Integration (create path) |
+| First visit creates Welcome achievement | Profile seed includes achievement id 1 | Integration |
+| Empty todos / zero due / no chats | Widget empty-state copy | Unit helpers + E2E mocks |
+| Widget API fails | That widget shows error; profile/quests still work | Soft-fail in UI |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
-| Backend down | Dashboard cannot load profile | Manual |
+| Backend / profile down | `Error:` on dashboard | Automated |
+| Single widget fetch fails | Isolated empty/error in that panel | Soft-fail (code) |
 
 ## Screenshots
 
-See [`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt) for API suite run that includes profile create.
+[`evidence/features/dashboard/`](./evidence/features/dashboard/) — happy, widgets, claim-streak, backend-down, nav end  
+[`results.txt`](./evidence/features/dashboard/results.txt)
 
 ## CI / coverage
 
-Backend profile routes partially covered via quest/profile tests; dashboard UI not in unit coverage.
+Backend profile routes covered via quest/profile tests; dashboard UI + widgets via Playwright and `dashboardWidgets` unit tests.

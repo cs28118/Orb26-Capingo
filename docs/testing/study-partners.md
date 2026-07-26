@@ -20,21 +20,21 @@
 | Request → accept → appears in accepted list | Automated |
 | Suggestions ranked by overlap | Automated |
 | Unknown code → 404 | Automated |
+| Duplicate pending request → 409 | Automated |
 
 ## End-to-end testing
 
 | Journey | Status |
 |---------|--------|
-| Subjects + suggestions list render | Automated (bypass auth + API mocks) |
-| Message → `/home/space?dm=` | Manual |
-| Opt out of suggestions | Manual |
+| Subjects + suggestions list render | Automated |
+| Message → `/home/space` DM | Automated |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
 | Shared subjects case-insensitive | Match | Automated |
-| No overlapping subjects | Empty suggestions | Automated |
+| No overlapping subjects / empty list | “No suggestions yet” | Automated |
 
 ## Failure cases
 
@@ -42,8 +42,9 @@
 |---------|----------|--------|
 | Request to self | 400 | Automated |
 | Unknown CAPY code | 404 | Automated |
-| Duplicate pending request | 409 | Code path exists; optional follow-up test |
+| Duplicate pending request | 409 | Automated |
 
-## Screenshots / CI / coverage
+## Screenshots
 
-[`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). Partners route coverage in `backend/coverage`.
+[`evidence/features/study-partners/`](./evidence/features/study-partners/)  
+[`results.txt`](./evidence/features/study-partners/results.txt)

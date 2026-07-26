@@ -20,14 +20,14 @@
 
 | Journey | Status |
 |---------|--------|
-| Timetable page loads with Add task / Generate | Automated (bypass auth + API mocks) |
-| Add task with subject → appears on list | Manual |
-| Generate timetable with empty tasks | Manual (edge) |
+| Page loads with Add task / Generate | Automated |
+| Add task with subject → appears on list | Automated |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
+| Generate modal shows day/time/break settings | Visible | Automated |
 | Duplicate subjects different casing | Deduped case-insensitively | Automated (unit) |
 | Empty subject ignored | Not synced | Automated (unit) |
 
@@ -36,8 +36,8 @@
 | Failure | Expected | Status |
 |---------|----------|--------|
 | Body without events | 400 | Automated |
-| Generate without time settings | Empty grid tip in README | Manual |
 
-## Screenshots / coverage
+## Screenshots
 
-Unit helpers + integration in [`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). `subjectSync.js` ~97% line coverage in backend report.
+[`evidence/features/timetable/`](./evidence/features/timetable/)  
+[`results.txt`](./evidence/features/timetable/results.txt)

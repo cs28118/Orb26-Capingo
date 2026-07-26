@@ -40,22 +40,26 @@ npm run test:e2e
 
 | Item | Status |
 |------|--------|
-| Unit test coverage | Done — frontend 18; backend helpers 7 |
-| Integration tests | Done — rooms/partners/decks/timetable/chats/profile (**30** backend tests) |
-| End-to-end testing | Done — Playwright **10 passed** (feature journeys + auth bypass); login-form-only test skipped under bypass |
-| Edge cases | Tables in each feature doc |
-| Failure cases | Tables in each feature doc |
-| Screenshots of test results | [`evidence/`](./evidence/) (logs + `e2e/login-page.png`) |
-| CI pipeline passing | Passing — [`evidence/ci/actions-green.png`](./evidence/ci/actions-green.png) (CI #1, `61ff012`) |
+| Unit test coverage | Done — frontend SM-2 + achievements + dashboard widgets; backend helpers 7 |
+| Integration tests | Done — rooms/partners/decks/timetable/chats/profile/wired achievements |
+| End-to-end testing | Done — Playwright **22 passed** (feature matrix + login-form project) |
+| Edge cases | Automated tables + screenshots under [`evidence/features/`](./evidence/features/) |
+| Failure cases | Automated tables + screenshots under [`evidence/features/`](./evidence/features/) |
+| Screenshots of test results | Per-feature PNGs + [`evidence/features/results-board.png`](./evidence/features/results-board.png) |
+| CI pipeline passing | Passing — [`evidence/ci/actions-green.png`](./evidence/ci/actions-green.png) |
 | Code coverage reports | Summaries in [`evidence/coverage/`](./evidence/coverage/); HTML via `npm run test:coverage` |
+
+**Detailed per-feature narratives** (what each unit/integration/edge/failure test does, and what each screenshot means) live in each folder’s [`results.txt`](./evidence/features/) — start at [`evidence/features/README.md`](./evidence/features/README.md).
+
 
 ## Evidence layout
 
 ```text
 evidence/
   ci/            GitHub Actions green-run screenshots
-  unit/          Unit test runner screenshots / log summaries
+  unit/          Unit test runner log summaries
   integration/   Integration test summaries
-  e2e/           Playwright report screenshots
+  e2e/           Playwright log + legacy feature shots
+  features/      Per-feature E2E / edge / failure screenshots + results.txt
   coverage/      Coverage summary screenshots
 ```

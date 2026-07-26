@@ -59,8 +59,38 @@ describe('achievement conditions', () => {
 
   it('feature flags unlock matching badges', () => {
     const hello = allAchievements.find((a) => a.id === 3)!;
+    const scheduler = allAchievements.find((a) => a.id === 4)!;
+    const deckBuilder = allAchievements.find((a) => a.id === 5)!;
+    const identity = allAchievements.find((a) => a.id === 6)!;
+    const auto = allAchievements.find((a) => a.id === 9)!;
+    const connected = allAchievements.find((a) => a.id === 14)!;
+    const multitask = allAchievements.find((a) => a.id === 17)!;
+    const drag = allAchievements.find((a) => a.id === 18)!;
+
     expect(hello.condition(baseUser())).toBe(false);
     expect(hello.condition(baseUser({ helloCapy: true }))).toBe(true);
+    expect(scheduler.condition(baseUser({ masterScheduler: true }))).toBe(true);
+    expect(deckBuilder.condition(baseUser({ deckBuilder: true }))).toBe(true);
+    expect(identity.condition(baseUser({ instantiatedIndentity: true }))).toBe(true);
+    expect(auto.condition(baseUser({ autoAllocating: true }))).toBe(true);
+    expect(connected.condition(baseUser({ connectedComponent: true }))).toBe(true);
+    expect(multitask.condition(baseUser({ multitask: true }))).toBe(true);
+    expect(drag.condition(baseUser({ draggedTask: true }))).toBe(true);
+  });
+
+  it('Data miner unlocks at 5 decks created', () => {
+    const miner = allAchievements.find((a) => a.id === 15)!;
+    expect(miner.condition(baseUser({ decksCreated: 4 }))).toBe(false);
+    expect(miner.condition(baseUser({ decksCreated: 5 }))).toBe(true);
+  });
+
+  it('Killer Quest badges use quest counters', () => {
+    const killerI = allAchievements.find((a) => a.id === 12)!;
+    const killerII = allAchievements.find((a) => a.id === 13)!;
+    expect(killerI.condition(baseUser({ questsCompleteStreak: 2 }))).toBe(false);
+    expect(killerI.condition(baseUser({ questsCompleteStreak: 3 }))).toBe(true);
+    expect(killerII.condition(baseUser({ questsCompleted: 9 }))).toBe(false);
+    expect(killerII.condition(baseUser({ questsCompleted: 10 }))).toBe(true);
   });
 });
 

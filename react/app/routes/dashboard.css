@@ -412,3 +412,125 @@
 .dashboard-partner-link:hover {
   text-decoration: underline;
 }
+
+/* study snapshot widgets */
+.dashboard-widgets {
+  margin-top: 8px;
+  margin-bottom: 32px;
+}
+
+.dashboard-widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dashboard-widget {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-widget-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-widget-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.dashboard-widget-cta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400e;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dashboard-widget-cta:hover {
+  text-decoration: underline;
+}
+
+.dashboard-widget-empty {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.dashboard-widget-highlight {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #3d2914;
+}
+
+.dashboard-widget-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-widget-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.dashboard-widget-item-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dashboard-widget-item-link:hover .dashboard-widget-item-title {
+  color: #92400e;
+}
+
+.dashboard-widget-item-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dashboard-widget-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.dashboard-widget-chip {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .dashboard-widgets-grid {
+    grid-template-columns: 1fr;
+  }
+}

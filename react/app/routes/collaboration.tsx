@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import './collaboration.css';
-import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import { unlockFromProfile } from '../utils/unlockFromProfile';
 
 type Suggestion = {
   uid: string;
@@ -258,14 +258,7 @@ export default function Collaboration() {
       await loadData(firebaseUser.uid);
       
       if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${getApiBase()}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
-          });
-        }
+        await unlockFromProfile(firebaseUser.uid, data.profile, { apiBase: getApiBase() });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not accept request');

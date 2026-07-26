@@ -1,0 +1,80 @@
+# Study Partners — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/study-partners.md`  
+Code: `collaboration.tsx`, `backend/routes/partners.js`, subject sync helpers
+
+---
+
+## Unit tests
+
+Backend `helpers.test.js`:
+
+| Test | What it proves |
+|------|----------------|
+| `generatePartnerCode` | Format `CAPY-XXXX` without ambiguous characters (no I/O/0/1) |
+| `canonicalPair` | Two UIDs sorted lexicographically for unique partnership keys |
+| `intersectSubjects` / `jaccardScore` | Case-insensitive overlap + score used for ranking suggestions |
+
+---
+
+## Integration tests
+
+File: `backend/tests/integration/partners.test.js`
+
+| Case | What it proves |
+|------|----------------|
+| Lookup by code | Case-insensitive `CAPY-…` resolve |
+| Self-request | **400** cannot request yourself |
+| Request → accept | Partnership appears in accepted list |
+| Suggestions ranking | Overlapping subjects ranked; non-overlap excluded |
+| Unknown code | **404** |
+| Duplicate pending request | **409** |
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Suggestions list | Your Subjects + Suggested partners shows StudyBuddy from mock |
+| Message → DM | Message link navigates to `/home/space` (DM open flow) |
+| Empty suggestions | With empty mock list, shows “No suggestions yet…” |
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Shared subjects case-insensitive | `Math` matches `math` | Unit + integration suggestions |
+| No overlapping subjects / empty API list | Empty suggestions copy in UI | E2E `edge-empty-suggestions.png` |
+| Opt out of suggestions | `openToPartners: false` hides user from others | Manual / partial API |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Request to self | **400** | Integration |
+| Unknown CAPY code | **404** | Integration |
+| Duplicate pending request | **409** | Integration |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-suggestions.png` | **Happy path.** Study Partners page with subjects and Suggested partners (StudyBuddy) — proves matching UI with healthy mocks. |
+| `e2e-message-dm.png` | **Happy path.** After clicking Message — Study Rooms / DM space — proves partner → chat handoff. |
+| `edge-empty-suggestions.png` | **Edge.** Suggested partners section with “No suggestions yet” — proves empty-state copy when there are no overlaps. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

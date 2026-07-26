@@ -22,31 +22,31 @@
 |---------|------|--------|
 | With `VITE_E2E_BYPASS_AUTH`, `/` enters signed-in shell | Playwright | Automated (CI) |
 | `/home` loads under bypass (no Application Error) | Playwright | Automated (CI) |
-| Login form branding (bypass off only) | Playwright | Skipped in CI bypass mode |
-| Full email/Google login | Manual / needs real Firebase keys | Documented |
+| Login branding + Enter Capingo | Playwright (`login-form` project) | Automated (CI) |
+| Full email/Google login with real keys | Manual | Documented |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
-| Toggle register ↔ sign-in | Form labels switch | Manual |
-| Stay signed in after refresh | Firebase persistence | Manual |
+| Toggle register ↔ sign-in | Form labels switch to Join Capingo / Create Account | Automated |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
-| Wrong password | Firebase auth error in UI | Manual |
-| Missing Firebase env in CI | Stubbed keys allow page mount; real auth still fails until secrets added | Automated smoke uses stubs |
+| Wrong password / bad credentials | `.error-message` shown | Automated (stub Firebase keys) |
+| Missing Firebase env in CI | Stubbed keys allow page mount | Automated smoke |
 
 ## Screenshots
 
-- [`evidence/e2e/login-page.png`](./evidence/e2e/login-page.png)
+- [`evidence/features/auth-accounts/`](./evidence/features/auth-accounts/) — `e2e-login-form`, `edge-register-toggle`, `failure-bad-credentials`, `e2e-bypass-home`
+- Results: [`evidence/features/auth-accounts/results.txt`](./evidence/features/auth-accounts/results.txt)
 
 ## CI pipeline
 
-Covered by the **E2E** job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
+Covered by the **E2E** job (`signed-in` + `login-form` projects).
 
 ## Code coverage reports
 
-N/A for auth module (no unit surface). Overall frontend coverage focuses on `sm2.ts`.
+N/A for auth module (no unit surface).

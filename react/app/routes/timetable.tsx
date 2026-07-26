@@ -3,7 +3,7 @@ import { subscribeToAuth } from '../firebaseAuth/authSubscribe';
 import './timetable.css';
 import { triggerToast } from '../components/NotiHelper';
 type PriorityLevel = 'High' | 'Medium' | 'Low';
-import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import { unlockFromProfile } from '../utils/unlockFromProfile';
 
 const PRESET_SUBJECTS = [
   'Maths',
@@ -358,14 +358,7 @@ export default function Timetable() {
       if (!res.ok) return;
       const data = await res.json();
       if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds }),
-          });
-        }
+        await unlockFromProfile(firebaseUser.uid, data.profile);
       }
     } catch (err) {
       console.error('Failed to record timetable milestone', err);
@@ -473,6 +466,7 @@ export default function Timetable() {
     };
     setTodoList([...todoList, newTask]);
     closeModal();
+    markTimetableAchievement('manual');
   };
 
   // Feature 2: Manually add event to timetable grid

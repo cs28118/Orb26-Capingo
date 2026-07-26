@@ -7,7 +7,7 @@
 
 | Module | Tests | Notes |
 |--------|------:|-------|
-| Progress keyword helper (in index) | 0 | Not extracted; AI path not unit-tested |
+| Progress keyword helper (in index) | 0 | Not extracted; AI path mocked in E2E |
 
 ## Integration tests
 
@@ -21,9 +21,8 @@
 
 | Journey | Status |
 |---------|--------|
-| Capingo AI shell renders | Automated (bypass auth + API mocks) |
-| New chat → send → AI reply | Manual (needs Ollama or Gemini) |
-| Memory summarize on long thread | Manual |
+| Capingo AI shell renders | Automated |
+| Send message → mocked AI reply | Automated |
 
 ## Edge cases
 
@@ -36,9 +35,10 @@
 
 | Failure | Expected | Status |
 |---------|----------|--------|
-| Backend/AI down | Error in chat UI | Manual |
+| AI service down | `.chat-error-banner` | Automated |
 | Invalid save body | 400 | Automated |
 
-## Screenshots / CI / coverage
+## Screenshots
 
-[`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). `routes/chats.js` ~78% statements in backend coverage.
+[`evidence/features/chatbot/`](./evidence/features/chatbot/)  
+[`results.txt`](./evidence/features/chatbot/results.txt)

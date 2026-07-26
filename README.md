@@ -52,6 +52,14 @@ Your home screen after login.
 - Claim login streak XP (20 XP per streak day, capped at 100 XP)
 - Quests for flashcard reviews, chat messages, and deck creation
 
+**Study snapshot widgets**
+
+- **Upcoming tasks** — next timetable todos (subject, priority, hours) with link to Timetable
+- **Cards due** — total SM-2 due cards and top decks; link to Flashcards
+- **Recent chats** — latest Capingo AI chats; link to Chatbot
+- **Study rooms** — recent rooms / DMs; link to Study Rooms
+- Each widget fails soft (empty/error copy) without breaking the rest of the Dashboard
+
 ---
 
 ### XP & levels
@@ -69,14 +77,25 @@ Earn XP for studying on Capingo. Your level, XP bar, and daily progress are stor
 
 Unlock badges for milestones. The Dashboard shows a preview; **View all** opens the full achievements page (`/home/achievements`).
 
-**Currently unlockable**
+**Unlock pipeline:** real study actions set profile flags/counters on the server → Capingo evaluates badge conditions → toast + save achievement ids.
 
-- **Welcome!** — awarded on first visit
-- **3 / 5 / 10 Days Streak** — login streak milestones
+**Wired unlocks**
 
-**Shown locked (coming soon)**
-
-- Capy Chatter, Master Scheduler, Flashcard master, DIY master — visible in the grid but not yet wired to unlock actions
+| Badge | How you unlock it |
+|-------|-------------------|
+| **Welcome!** | First visit / profile create |
+| **3 / 5 / 10 Days Streak** | Login streak milestones |
+| **Hello Capy!** | First Capingo AI chat message |
+| **Master Scheduler** | Add a timetable task or place a block manually |
+| **Deck Builder** | Create a flashcard deck |
+| **Instantiated Identity** | Save an edited profile |
+| **Auto Allocating...** | Successfully generate a timetable |
+| **Climbing up... / peak / One small step** | Reach levels 5 / 10 / 2 |
+| **Killer Quest I / II** | Complete quests 3 days in a row / 10 quests total |
+| **Connected component** | Accept (or be accepted as) a study partner |
+| **Data miner** | Create 5 flashcard decks |
+| **Multitasker** | Overlap multiple blocks in the same timeslot |
+| **Drag it!** | Drag a task onto the timetable grid |
 
 ---
 
@@ -363,13 +382,13 @@ Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one 
 
 | Item | Status |
 |------|--------|
-| **Unit test coverage** | Frontend: Vitest for SM-2 + achievements (18 tests). Backend: partner/room codes, subject sync, canonical pair (7 tests) |
-| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms (incl. admin/announcements/resources), partners, decks, timetable, chats CRUD, profile quests/streak (**30** tests total) |
-| **End-to-end testing** | Playwright: **10** signed-in feature journeys (Dashboard, Timetable, Chatbot, Flashcards, Partners, Rooms, Achievements, nav) via `VITE_E2E_BYPASS_AUTH` + API mocks; login form smoke skipped when bypass is on |
-| **Edge cases** | Documented per feature (e.g. new-card queue limit, DM find-or-create, last admin leave, quest daily cap) |
-| **Failure cases** | Documented + automated where possible (403 non-partner DM, 404 bad room/partner code, 400 invalid payloads) |
-| **Screenshots of test results** | [`docs/testing/evidence/`](docs/testing/evidence/) — unit/integration logs, [`e2e/login-page.png`](docs/testing/evidence/e2e/login-page.png) |
-| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green run evidence: [`docs/testing/evidence/ci/actions-green.png`](docs/testing/evidence/ci/actions-green.png) (CI #1 on `feature-extensions`, commit `61ff012`) |
+| **Unit test coverage** | Frontend: Vitest for SM-2, achievements, dashboard widgets. Backend: partner/room codes, subject sync, canonical pair |
+| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms, partners, decks, timetable, chats, profile, wired achievements |
+| **End-to-end testing** | Playwright **22 passed**: signed-in feature matrix (bypass + API mocks) + login-form project (register toggle, bad credentials) |
+| **Edge cases** | Automated per feature (caught-up flashcards, empty suggestions, generate modal, register toggle, streak XP cap, …) — see feature docs |
+| **Failure cases** | Automated UI + API (profile down, AI down, deck save fail, bad join code, bad credentials, 400/403/404/409) |
+| **Screenshots of test results** | Per-feature PNGs + results board: [`docs/testing/evidence/features/`](docs/testing/evidence/features/) |
+| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green run evidence: [`docs/testing/evidence/ci/actions-green.png`](docs/testing/evidence/ci/actions-green.png) |
 | **Code coverage reports** | `npm run test:coverage` in `react/` and `backend/` → HTML under `*/coverage` (gitignored). Summaries: [`docs/testing/evidence/coverage/`](docs/testing/evidence/coverage/) |
 
 ### Run tests locally
@@ -406,7 +425,7 @@ npm run test:coverage
 |-----|----------------|
 | **Frontend** | `npm ci` → typecheck → Vitest + coverage artifact |
 | **Backend** | `npm ci` → Vitest unit/integration + coverage artifact |
-| **E2E** | Playwright Chromium smoke (login page; stub Firebase env for mount) |
+| **E2E** | Playwright Chromium — signed-in feature matrix + login-form (bypass off) |
 
 Badge at the top of this README reflects the latest workflow run on GitHub.
 
@@ -433,7 +452,7 @@ Orb26-Capingo/
 
 **AI:** `POST /api/chat`, `POST /api/summarize`, `POST /api/flashcards/*`, `GET /api/health`
 
-**Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/unlock-achievements`, `POST /api/profile/update`
+**Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/update`, `POST /api/profile/timetable-achievement`, `POST /api/profile/unlock-achievements`
 
 **Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET|POST|PUT|DELETE /api/chats/:uid/...`
 
@@ -446,8 +465,6 @@ Orb26-Capingo/
 ## What's next
 
 - Firebase token verification on API routes
-- Dashboard widgets (upcoming tasks, recent chats)
-- Wire remaining achievement unlocks (Capy Chatter, Master Scheduler, etc.)
 
 ---
 

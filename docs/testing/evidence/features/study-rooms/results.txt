@@ -1,0 +1,87 @@
+# Study Rooms — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/study-rooms.md`  
+Code: `space.tsx`, `backend/routes/rooms*.js`, Socket.IO `chatSocket.js`
+
+---
+
+## Unit tests
+
+| Test | What it proves |
+|------|----------------|
+| `generateRoomCode` | Format `ROOM-XXXXXX` with unambiguous alphabet |
+
+---
+
+## Integration tests
+
+Broad HTTP coverage in `rooms.test.js` / `rooms-admin.test.js`:
+
+| Case | What it proves |
+|------|----------------|
+| Create group + join by code | Membership + room code works |
+| Join when already member | `alreadyMember: true` |
+| Unknown join code | **404** |
+| DM requires accepted partnership | Non-partner → **403** |
+| DM find-or-create | Opening DM twice returns same `roomId` |
+| DM with self | **400** |
+| Invite partner / non-partner | Partner OK; non-partner **403** |
+| Last admin leaves | Remaining member promoted |
+| Promote / kick | Admin can manage; non-admin kick **403** |
+| Announcements | Admin-only post rules |
+| Resources | http(s) URLs; members can add |
+
+Socket.IO live chat is **not** fully covered by HTTP integration; membership checks exist in socket handlers.
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Friends + rooms list | Sidebar shows Friends (StudyBuddy) and room “E2E Study Hall” |
+| Create room | Create modal → “Chem Crew” appears after mocked create |
+| Announcements tab | Open room → Dashboard tab → empty announcements / post form |
+| Bad join code | Join with bad code → `.space-error` |
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Already member join | Idempotent join with `alreadyMember` | Integration |
+| Open DM twice | Same room id | Integration |
+| Last admin leaves | Another member becomes admin | Integration |
+| Empty announcements | “No announcements yet” | E2E announcements tab |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Bad join code | Error banner in Study Rooms UI | Automated E2E |
+| DM non-partner | **403** | Integration |
+| Invite non-partner | **403** | Integration |
+| Live two-client Socket.IO chat | Messages appear in both clients | Manual (out of CI) |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-list.png` | **Happy path.** Friends and Study Rooms list with E2E Study Hall — proves space sidebar load. |
+| `e2e-create-room.png` | **Happy path.** After creating “Chem Crew” — proves create-room modal + list update. |
+| `e2e-announcements-tab.png` | **Happy path / secondary tab.** Room Dashboard (announcements) empty state — proves tab switch beyond chat. |
+| `failure-bad-join-code.png` | **Failure.** Error after joining with `ROOM-BADXXX` — proves invalid codes are rejected in the UI. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

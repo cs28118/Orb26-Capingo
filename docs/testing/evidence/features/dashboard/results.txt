@@ -1,0 +1,75 @@
+# Dashboard — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/dashboard.md`  
+Routes: `/home` (`dashboard.tsx` / home shell)
+
+---
+
+## Unit tests
+
+No Dashboard-specific Vitest file. Display logic is mostly wiring profile JSON into JSX.
+
+Related pure logic covered elsewhere:
+- Achievement unlock checks used when claiming streak (`achievementCheck.ts` unit tests)
+- Partner code format (`generatePartnerCode` backend unit test)
+
+---
+
+## Integration tests
+
+| Case | File / area | What it proves |
+|------|-------------|----------------|
+| Profile create on first GET | `backend/tests/integration/data.test.js` | `GET /api/profile/:uid` seeds username, XP fields, and a `CAPY-****` partner code |
+| Welcome achievement seed | same profile create path | New profiles include achievement id `1` (Welcome) |
+
+These API tests back the Dashboard’s first paint: partner code, level, quests.
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Happy path | Dashboard shows `CAPY-E2E1`, Quest List, and Level / XP from mocked profile |
+| Claim streak | Clicking “Claim N XP” updates UI to ✓ Claimed (mocked `POST /api/profile/claim-streak`) |
+| Nav flow | From Dashboard, nav links reach Timetable, Flashcard, Study Partners, Study Rooms |
+
+E2E uses `VITE_E2E_BYPASS_AUTH` + Playwright route mocks (`e2e/helpers/mockApi.ts`).
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| First visit / new profile | Welcome achievement present; partner code generated | Integration (profile create) |
+| Streak already claimed | Button shows Claimed; second claim returns “already claimed” message | Integration on claim-streak; E2E shows Claimed after click |
+| Quest list empty vs populated | Mocked quests render under Quest List | E2E happy path |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Profile API down (503 / non-OK) | Dashboard shows `Error: …` instead of profile card | Automated — `failure-backend-down.png` (mock `profileDown: true`) |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-happy.png` | **Happy path.** Full dashboard: welcome, level/XP, partner code `CAPY-E2E1`, quest list — proves main home UI with healthy API mocks. |
+| `e2e-claim-streak.png` | **Happy path / XP.** After claiming login streak; UI shows claimed state (and toast may appear) — proves streak claim wiring. |
+| `e2e-nav-flow-end.png` | **Happy path (nav).** End of nav journey on Study Rooms — proves menu routing from Dashboard across features. |
+| `failure-backend-down.png` | **Failure.** Error heading when profile fetch fails — proves Dashboard does not silently hang if the backend is unavailable. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

@@ -224,7 +224,9 @@ router.post('/timetable-achievement', async (req, res) => {
     const { uid, type } = req.body ?? {};
     const field = TIMETABLE_ACHIEVEMENT_FIELDS[type];
     if (!uid || !field) {
-      return res.status(400).json({ error: 'uid and a valid type ("manual" or "auto") are required' });
+      return res.status(400).json({
+        error: 'uid and a valid type ("manual", "auto", "drag", or "stack") are required',
+      });
     }
     const profile = await UserProfile.findOne({ firebaseUid: uid });
     if (!profile) return res.status(404).json({ error: 'User not found' });

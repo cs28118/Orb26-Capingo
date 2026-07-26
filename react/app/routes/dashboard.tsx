@@ -7,7 +7,18 @@ import { triggerToast } from '../components/NotiHelper';
 import type { userData } from '../types/types';
 import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import type { achievement } from '../types/types';
-import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import { unlockFromProfile } from '../utils/unlockFromProfile';
+import {
+  formatRelativeTime,
+  pickRecentChats,
+  pickRecentRooms,
+  pickUpcomingTodos,
+  summarizeDueDecks,
+  type DueDeckSummary,
+  type WidgetChat,
+  type WidgetRoom,
+  type WidgetTodo,
+} from '../utils/dashboardWidgets';
 
 const presetProfilePic = [
   '/assets/profile-placeholder.png',
@@ -15,6 +26,14 @@ const presetProfilePic = [
   '/assets/profile2.png',
   '/assets/profile3.png'
 ];
+
+const apiBase = () => import.meta.env.VITE_API_URL || '';
+
+type WidgetLoadState<T> = {
+  loading: boolean;
+  error: string;
+  data: T;
+};
 
 export default function Dashboard() {
   const [userData, setUserData] = useState<userData | null>(null);
@@ -25,6 +44,29 @@ export default function Dashboard() {
   const [editUsername, setEditUsername] = useState('');
   const [selectedProfilePic, setSelectedProfilePic] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  const [upcomingTasks, setUpcomingTasks] = useState<WidgetLoadState<WidgetTodo[]>>({
+    loading: true,
+    error: '',
+    data: [],
+  });
+  const [dueFlashcards, setDueFlashcards] = useState<
+    WidgetLoadState<{ totalDue: number; decks: DueDeckSummary[] }>
+  >({
+    loading: true,
+    error: '',
+    data: { totalDue: 0, decks: [] },
+  });
+  const [recentChats, setRecentChats] = useState<WidgetLoadState<WidgetChat[]>>({
+    loading: true,
+    error: '',
+    data: [],
+  });
+  const [recentRooms, setRecentRooms] = useState<WidgetLoadState<WidgetRoom[]>>({
+    loading: true,
+    error: '',
+    data: [],
+  });
   
   //auth state
   useEffect(() => {
@@ -54,13 +96,8 @@ export default function Dashboard() {
         setUserData(data);
 
         //check achievements when login (*special case for study partner achievement)
-        const newlyUnlockedIds = checkAndUnlockAchievements(data);
+        const newlyUnlockedIds = await unlockFromProfile(firebaseUser.uid, data);
         if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds })
-          });
           setUserData({
             ...data,
             achievements: [
@@ -83,6 +120,98 @@ export default function Dashboard() {
     fetchUserData();
   }, [firebaseUser]);
 
+  // Dashboard widgets — soft-fail independently of profile
+  useEffect(() => {
+    if (!firebaseUser) return;
+    const uid = firebaseUser.uid;
+    const base = apiBase();
+    let cancelled = false;
+
+    const loadWidgets = async () => {
+      const [timetableRes, decksRes, chatsRes, roomsRes] = await Promise.allSettled([
+        fetch(`${base}/api/timetable/${uid}`),
+        fetch(`${base}/api/decks/${uid}`),
+        fetch(`${base}/api/chats/${uid}`),
+        fetch(`${base}/api/rooms/${uid}`),
+      ]);
+
+      if (cancelled) return;
+
+      if (timetableRes.status === 'fulfilled' && timetableRes.value.ok) {
+        try {
+          const json = await timetableRes.value.json();
+          setUpcomingTasks({
+            loading: false,
+            error: '',
+            data: pickUpcomingTodos(json.todos || [], 5),
+          });
+        } catch {
+          setUpcomingTasks({ loading: false, error: 'Could not load tasks', data: [] });
+        }
+      } else {
+        setUpcomingTasks({ loading: false, error: 'Could not load tasks', data: [] });
+      }
+
+      if (decksRes.status === 'fulfilled' && decksRes.value.ok) {
+        try {
+          const json = await decksRes.value.json();
+          setDueFlashcards({
+            loading: false,
+            error: '',
+            data: summarizeDueDecks(json.decks || [], 2),
+          });
+        } catch {
+          setDueFlashcards({
+            loading: false,
+            error: 'Could not load decks',
+            data: { totalDue: 0, decks: [] },
+          });
+        }
+      } else {
+        setDueFlashcards({
+          loading: false,
+          error: 'Could not load decks',
+          data: { totalDue: 0, decks: [] },
+        });
+      }
+
+      if (chatsRes.status === 'fulfilled' && chatsRes.value.ok) {
+        try {
+          const json = await chatsRes.value.json();
+          setRecentChats({
+            loading: false,
+            error: '',
+            data: pickRecentChats(json.chats || [], 3),
+          });
+        } catch {
+          setRecentChats({ loading: false, error: 'Could not load chats', data: [] });
+        }
+      } else {
+        setRecentChats({ loading: false, error: 'Could not load chats', data: [] });
+      }
+
+      if (roomsRes.status === 'fulfilled' && roomsRes.value.ok) {
+        try {
+          const json = await roomsRes.value.json();
+          setRecentRooms({
+            loading: false,
+            error: '',
+            data: pickRecentRooms(json.rooms || [], 2),
+          });
+        } catch {
+          setRecentRooms({ loading: false, error: 'Could not load rooms', data: [] });
+        }
+      } else {
+        setRecentRooms({ loading: false, error: 'Could not load rooms', data: [] });
+      }
+    };
+
+    void loadWidgets();
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser]);
+
   //login streak and button handle
   const handleLoginStreak = async () => {
     if (!firebaseUser) return;
@@ -94,18 +223,9 @@ export default function Dashboard() {
       });
       if (!response.ok) throw new Error('Failed to claim streak');
       const data = await response.json();
-      const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+      const newlyUnlockedIds = await unlockFromProfile(firebaseUser.uid, data.profile);
 
-      //achievement manage
       if (newlyUnlockedIds.length > 0) {
-        await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: firebaseUser.uid,
-            newAchievementIds: newlyUnlockedIds
-          })
-        });
         data.profile.achievements = [
           ...(data.profile.achievements || []),
           ...newlyUnlockedIds.map((id: number) => ({ id }))
@@ -142,13 +262,8 @@ export default function Dashboard() {
       const data = await response.json();
       setUserData(data.profile);
       setIsEditing(false);
-      const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
+      const newlyUnlockedIds = await unlockFromProfile(firebaseUser.uid, data.profile);
       if (newlyUnlockedIds.length > 0) {
-        await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: firebaseUser.uid, newAchievementIds: newlyUnlockedIds })
-        });
         data.profile.achievements = [
           ...(data.profile.achievements || []),
           ...newlyUnlockedIds.map((id: number) => ({ id }))
@@ -282,6 +397,133 @@ export default function Dashboard() {
           </li>
         </ul>
       </div>
+
+      {/* study snapshot widgets */}
+      <section className="dashboard-widgets" aria-label="Study snapshot">
+        <h3 className="section-title">Study snapshot</h3>
+        <div className="dashboard-widgets-grid">
+          <article className="dashboard-widget">
+            <div className="dashboard-widget-header">
+              <h4>Upcoming tasks</h4>
+              <Link to="/home/timetable" className="dashboard-widget-cta">
+                Open Timetable →
+              </Link>
+            </div>
+            {upcomingTasks.loading ? (
+              <p className="dashboard-widget-empty">Loading tasks…</p>
+            ) : upcomingTasks.error ? (
+              <p className="dashboard-widget-empty">{upcomingTasks.error}</p>
+            ) : upcomingTasks.data.length === 0 ? (
+              <p className="dashboard-widget-empty">No tasks yet — add one on Timetable.</p>
+            ) : (
+              <ul className="dashboard-widget-list">
+                {upcomingTasks.data.map((task) => (
+                  <li key={task.id} className="dashboard-widget-item">
+                    <span className="dashboard-widget-item-title">{task.title}</span>
+                    <span className="dashboard-widget-item-meta">
+                      {task.subject ? <span className="dashboard-widget-chip">{task.subject}</span> : null}
+                      {task.priority ? <span>{task.priority}</span> : null}
+                      {typeof task.hoursNeeded === 'number' ? <span>{task.hoursNeeded}h</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+
+          <article className="dashboard-widget">
+            <div className="dashboard-widget-header">
+              <h4>Cards due</h4>
+              <Link to="/home/flashcard" className="dashboard-widget-cta">
+                Study due →
+              </Link>
+            </div>
+            {dueFlashcards.loading ? (
+              <p className="dashboard-widget-empty">Loading decks…</p>
+            ) : dueFlashcards.error ? (
+              <p className="dashboard-widget-empty">{dueFlashcards.error}</p>
+            ) : dueFlashcards.data.totalDue === 0 ? (
+              <p className="dashboard-widget-empty">You&apos;re caught up on flashcards.</p>
+            ) : (
+              <>
+                <p className="dashboard-widget-highlight">
+                  {dueFlashcards.data.totalDue} card{dueFlashcards.data.totalDue === 1 ? '' : 's'} due
+                </p>
+                <ul className="dashboard-widget-list">
+                  {dueFlashcards.data.decks.map((deck) => (
+                    <li key={deck.id} className="dashboard-widget-item">
+                      <span className="dashboard-widget-item-title">{deck.title}</span>
+                      <span className="dashboard-widget-item-meta">{deck.due} due</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </article>
+
+          <article className="dashboard-widget">
+            <div className="dashboard-widget-header">
+              <h4>Recent chats</h4>
+              <Link to="/home/chatbot" className="dashboard-widget-cta">
+                Capingo AI →
+              </Link>
+            </div>
+            {recentChats.loading ? (
+              <p className="dashboard-widget-empty">Loading chats…</p>
+            ) : recentChats.error ? (
+              <p className="dashboard-widget-empty">{recentChats.error}</p>
+            ) : recentChats.data.length === 0 ? (
+              <p className="dashboard-widget-empty">No chats yet — ask Capingo anything.</p>
+            ) : (
+              <ul className="dashboard-widget-list">
+                {recentChats.data.map((chat) => (
+                  <li key={chat.id} className="dashboard-widget-item">
+                    <Link to="/home/chatbot" className="dashboard-widget-item-link">
+                      <span className="dashboard-widget-item-title">
+                        {chat.pinned ? '📌 ' : ''}
+                        {chat.title || 'Untitled chat'}
+                      </span>
+                      <span className="dashboard-widget-item-meta">
+                        {chat.updatedAt ? formatRelativeTime(chat.updatedAt) : ''}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+
+          <article className="dashboard-widget">
+            <div className="dashboard-widget-header">
+              <h4>Study rooms</h4>
+              <Link to="/home/space" className="dashboard-widget-cta">
+                Open Study Rooms →
+              </Link>
+            </div>
+            {recentRooms.loading ? (
+              <p className="dashboard-widget-empty">Loading rooms…</p>
+            ) : recentRooms.error ? (
+              <p className="dashboard-widget-empty">{recentRooms.error}</p>
+            ) : recentRooms.data.length === 0 ? (
+              <p className="dashboard-widget-empty">No rooms yet — create or join one.</p>
+            ) : (
+              <ul className="dashboard-widget-list">
+                {recentRooms.data.map((room) => (
+                  <li key={room.roomId} className="dashboard-widget-item">
+                    <span className="dashboard-widget-item-title">{room.name}</span>
+                    <span className="dashboard-widget-item-meta">
+                      {room.type === 'direct' ? 'DM' : 'Group'}
+                      {room.lastMessage?.text
+                        ? ` · ${String(room.lastMessage.text).slice(0, 40)}`
+                        : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </article>
+        </div>
+      </section>
 
       {/* edit form */}
       {isEditing && (

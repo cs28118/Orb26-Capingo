@@ -14,7 +14,7 @@ Capingo uses **one shared CI pipeline** for the whole repository (not one pipeli
 |-----|----------------|
 | **Frontend** | `npm ci` → typecheck → Vitest unit tests + coverage |
 | **Backend** | `npm ci` → Vitest unit + integration tests + coverage |
-| **E2E** | Playwright feature journeys (auth bypass + API mocks) after frontend job |
+| **E2E** | Playwright feature matrix (auth bypass + API mocks) + login-form project (bypass off) |
 
 Coverage HTML and the Playwright report are uploaded as **Actions artifacts** (14-day retention).
 

@@ -16,30 +16,31 @@
 | `reviewDeck` awards XP then hits daily cap (limit 2) | Automated |
 | Invalid `actionType` → 400 | Automated |
 | Claim streak once, then already-claimed message | Automated |
+| Streak XP capped at 100 (`min(streak*20, 100)`) | Automated |
+| Unknown user claim-streak → 404 | Automated |
 
 ## End-to-end testing
 
 | Journey | Status |
 |---------|--------|
-| Dashboard shows XP / level under bypass | Automated (bypass auth + API mocks) |
-| Toast on quest XP from flashcard study | Manual |
-| Level-up toast | Manual |
-| Claim streak from Dashboard | Manual |
+| Dashboard shows Level / XP under bypass | Automated |
+| Claim streak from Dashboard | Automated |
 
 ## Edge cases
 
 | Case | Expected | Status |
 |------|----------|--------|
 | Third reviewDeck same day | Cap message, no extra XP | Automated |
-| Streak XP capped at 100 | `min(streak*20, 100)` | Manual / code review |
+| Streak XP capped at 100 | `+100 XP` for streak ≥ 5 | Automated |
 
 ## Failure cases
 
 | Failure | Expected | Status |
 |---------|----------|--------|
-| Unknown user quest-action | 404 | Covered by route (similar patterns tested) |
+| Unknown user quest-action / claim | 404 | Automated (claim-streak) |
 | Invalid action | 400 | Automated |
 
-## Screenshots / CI / coverage
+## Screenshots
 
-Evidence: [`evidence/integration/backend-vitest.txt`](./evidence/integration/backend-vitest.txt). Profile route coverage included in backend HTML report (`backend/coverage`).
+[`evidence/features/xp-levels/`](./evidence/features/xp-levels/)  
+[`results.txt`](./evidence/features/xp-levels/results.txt)

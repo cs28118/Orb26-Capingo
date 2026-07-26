@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
 import './flashcard.css';
 import { triggerToast } from '../components/NotiHelper';
-import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import { unlockFromProfile } from '../utils/unlockFromProfile';
 import {
   buildStudyQueue,
   countDue,
@@ -292,14 +292,7 @@ export default function Flashcards() {
         triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
       }
       if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid, newAchievementIds: newlyUnlockedIds })
-          });
-        }
+        await unlockFromProfile(uid, data.profile);
       }
     } catch (err) {
       console.error("Failed to award XP", err);

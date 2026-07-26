@@ -89,4 +89,29 @@ describe('partners API', () => {
     const res = await request(app).get('/api/partners/code/CAPY-ZZZZ');
     expect(res.status).toBe(404);
   });
+
+  it('rejects duplicate pending partner request with 409', async () => {
+    await UserProfile.create({
+      firebaseUid: 'alice2',
+      username: 'Alice2',
+      partnerCode: 'CAPY-AL2',
+      subjects: ['Math'],
+    });
+    await UserProfile.create({
+      firebaseUid: 'bob2',
+      username: 'Bob2',
+      partnerCode: 'CAPY-BB2',
+      subjects: ['Math'],
+    });
+
+    const first = await request(app)
+      .post('/api/partners/request')
+      .send({ requesterUid: 'bob2', partnerCode: 'CAPY-AL2' });
+    expect(first.status).toBe(201);
+
+    const dup = await request(app)
+      .post('/api/partners/request')
+      .send({ requesterUid: 'bob2', partnerCode: 'CAPY-AL2' });
+    expect(dup.status).toBe(409);
+  });
 });

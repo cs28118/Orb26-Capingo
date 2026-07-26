@@ -1,0 +1,75 @@
+# Chatbot — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/chatbot.md`  
+Routes: `/home/chatbot`, APIs `/api/chats/*`, `/api/chat` (AI)
+
+---
+
+## Unit tests
+
+No extracted unit module for chat memory / progress keywords (helpers still live in Express `index` / chat routes). Persistence and validation are covered at **integration** level; AI reply path is covered by **E2E mocks**.
+
+---
+
+## Integration tests
+
+File: `backend/tests/integration/chats-profile.test.js`
+
+| Case | What it proves |
+|------|----------------|
+| Create / list / get / update / delete | Full chat CRUD for a user |
+| Pin on save | `PUT` with `pinned: true` persists |
+| Messages round-trip | Saved messages returned on GET |
+| Missing chat id | GET returns **404** |
+| PUT without `messages` array | Returns **400** |
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Shell | Capingo AI page loads (“Ask Capingo AI” / help CTA) with chat sidebar |
+| Mocked AI reply | Typing a question + Enter hits mocked `POST /api/chat` and shows “Hello from Capingo AI (E2E mock).” |
+
+Real Ollama/Gemini replies are still manual outside CI.
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Pin chat on save | `pinned: true` stored | Integration |
+| Create when chat already exists | Server returns existing chat | Code path (optional follow-up assert) |
+| Empty chat list | UI still shows New chat affordance | Partial via mocks (`emptyChats` mode available) |
+| Long-thread memory summarize | Calls `/api/summarize` | Manual (needs AI) |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| AI service unavailable | `.chat-error-banner` with error text | Automated — mock `chatAiDown: true` |
+| Invalid chat PUT body | **400** | Integration |
+| Missing chat | **404** | Integration |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-shell.png` | **Happy path.** Empty/ready Capingo AI shell before sending — proves chatbot route and chrome render. |
+| `e2e-ai-reply.png` | **Happy path.** After sending a message, assistant reply from mock AI appears — proves send + `/api/chat` wiring without a live LLM. |
+| `failure-ai-down.png` | **Failure.** Error banner when `/api/chat` returns 503 — proves AI outages are visible to the user. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

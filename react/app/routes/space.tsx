@@ -40,6 +40,12 @@ type ChatMessage = {
   roomId: string;
   senderUid: string;
   text: string;
+  deleted?: boolean;
+  replyTo?: {
+    messageId: string;
+    senderUid: string;
+    text: string;
+  };
   createdAt: string;
 };
 
@@ -71,6 +77,7 @@ export default function Space() {
   const [firebaseUser, setFirebaseUser] = useState<{ uid: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
@@ -171,6 +178,11 @@ export default function Space() {
       });
     });
 
+    socket.on('message_deleted', ({ roomId, messageId }: { roomId: string; messageId: string }) => {
+      if (String(roomId) !== activeRoomIdRef.current) return;
+      setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, deleted: true, text: '' } : m)));
+    });
+
     socket.on('connect_error', () => {
       setError('Live chat connection failed. Messages may be delayed.');
     });
@@ -204,7 +216,41 @@ export default function Space() {
     }
   };
 
-  const openFriendChat = async (friend: Friend) => {
+  const loadMembers = useCallback(async (roomId: string) => {
+    if (!firebaseUser) return;
+    try {
+      const res = await fetch(`${getApiBase()}/api/rooms/${roomId}/members?uid=${firebaseUser.uid}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load members');
+      setRoomMembers(data.members || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load members');
+    }
+  }, [firebaseUser]);
+
+  const openRoom = useCallback(async (roomId: string, label: string) => {
+    if (!firebaseUser) return;
+    setActiveRoomId(roomId);
+    setActiveRoomLabel(label);
+    setMessages([]);
+    setActiveTab('chat');
+    setReplyingTo(null);
+    joinRoomSocket(roomId);
+
+    try {
+      const res = await fetch(`${getApiBase()}/api/rooms/${roomId}/messages?uid=${firebaseUser.uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch {
+      setError('Could not load message history.');
+    }
+
+    await loadMembers(roomId);
+  }, [firebaseUser, loadMembers]);
+
+  const openFriendChat = useCallback( async (friend: Friend) => {
     if (!firebaseUser) return;
     setError('');
     try {
@@ -220,7 +266,7 @@ export default function Space() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open chat');
     }
-  };
+  }, [firebaseUser, loadSidebar, openRoom]);
 
   useEffect(() => {
     if (!firebaseUser || isLoading || openedDmRef.current) return;
@@ -230,8 +276,11 @@ export default function Space() {
     if (!friend) return;
     openedDmRef.current = true;
     setSearchParams({}, { replace: true });
-    void openFriendChat(friend);
-  }, [firebaseUser, isLoading, friends, searchParams, setSearchParams]);
+    const timer = setTimeout(() => {
+      void openFriendChat(friend);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [firebaseUser, isLoading, friends, searchParams, setSearchParams, openFriendChat]);
 
   const handleCreateRoom = async () => {
     if (!firebaseUser) return;
@@ -290,18 +339,6 @@ export default function Space() {
     }
   };
 
-  const loadMembers = useCallback(async (roomId: string) => {
-    if (!firebaseUser) return;
-    try {
-      const res = await fetch(`${getApiBase()}/api/rooms/${roomId}/members?uid=${firebaseUser.uid}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not load members');
-      setRoomMembers(data.members || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load members');
-    }
-  }, [firebaseUser]);
-
   const loadAnnouncements = useCallback(async (roomId: string) => {
     if (!firebaseUser) return;
     try {
@@ -325,27 +362,6 @@ export default function Space() {
       setError(err instanceof Error ? err.message : 'Could not load resources');
     }
   }, [firebaseUser]);
-
-  const openRoom = useCallback(async (roomId: string, label: string) => {
-    if (!firebaseUser) return;
-    setActiveRoomId(roomId);
-    setActiveRoomLabel(label);
-    setMessages([]);
-    setActiveTab('chat');
-    joinRoomSocket(roomId);
-
-    try {
-      const res = await fetch(`${getApiBase()}/api/rooms/${roomId}/messages?uid=${firebaseUser.uid}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-      }
-    } catch {
-      setError('Could not load message history.');
-    }
-
-    await loadMembers(roomId);
-  }, [firebaseUser, loadMembers]);
 
   const handleOpenMembers = async () => {
     if (!activeRoomId) return;
@@ -411,11 +427,31 @@ export default function Space() {
     e.preventDefault();
     if (!activeRoomId || !messageInput.trim() || !socketRef.current) return;
     const text = messageInput.trim();
+    const replyToId = replyingTo?._id;
     setMessageInput('');
+    setReplyingTo(null);
 
-    socketRef.current.emit('send_message', { roomId: activeRoomId, text }, (response: { error?: string }) => {
+    socketRef.current.emit(
+      'send_message',
+      { roomId: activeRoomId, text, ...(replyToId ? { replyToId } : {}) },
+      (response: { error?: string }) => {
+        if (response?.error) setError(response.error);
+      }
+    );
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (!activeRoomId || !socketRef.current) return;
+    if (!window.confirm('Delete this message?')) return;
+    socketRef.current.emit('delete_message', { roomId: activeRoomId, messageId }, (response: { error?: string }) => {
       if (response?.error) setError(response.error);
     });
+  };
+
+  const canDeleteMessage = (m: ChatMessage) => {
+    if (!firebaseUser) return false;
+    if (m.senderUid === firebaseUser.uid) return true;
+    return !!activeRoom?.isAdmin;
   };
 
   const getSenderLabel = (uid: string) => {
@@ -607,14 +643,44 @@ export default function Space() {
                 <div className="space-messages">
                   {messages.map((m) => (
                     <div key={m._id} className={`space-message ${m.senderUid === firebaseUser.uid ? 'mine' : ''}`}>
-                      {activeRoom?.type === 'group' && m.senderUid !== firebaseUser.uid && (
+                      {activeRoom?.type === 'group' && m.senderUid !== firebaseUser.uid && !m.deleted && (
                         <div className="space-message-sender">{getSenderLabel(m.senderUid)}</div>
                       )}
-                      <div className="space-message-bubble">{m.text}</div>
+                      {m.deleted ? (
+                        <div className="space-message-bubble space-message-deleted">This message was deleted</div>
+                      ) : (
+                        <>
+                          <div className="space-message-bubble">
+                            {m.replyTo && (
+                              <div className="space-message-reply-quote">
+                                <span className="space-message-reply-quote-sender">{getSenderLabel(m.replyTo.senderUid)}</span>
+                                <span className="space-message-reply-quote-text">{m.replyTo.text}</span>
+                              </div>
+                            )}
+                            {m.text}
+                          </div>
+                          <div className="space-message-actions">
+                            <button type="button" className="space-message-action-btn" onClick={() => setReplyingTo(m)}>Reply</button>
+                            {canDeleteMessage(m) && (
+                              <button type="button" className="space-message-action-btn" onClick={() => handleDeleteMessage(m._id)}>Delete</button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {replyingTo && (
+                  <div className="space-reply-preview">
+                    <div className="space-reply-preview-body">
+                      <span className="space-reply-preview-label">Replying to {getSenderLabel(replyingTo.senderUid)}</span>
+                      <span className="space-reply-preview-text">{replyingTo.text}</span>
+                    </div>
+                    <button type="button" className="space-reply-preview-cancel" onClick={() => setReplyingTo(null)}>✕</button>
+                  </div>
+                )}
 
                 <form className="space-composer" onSubmit={handleSendMessage}>
                   <input

@@ -369,6 +369,9 @@
   padding: 28px;
   width: 90%;
   max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-sizing: border-box;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
   position: relative;
   animation: timetableModalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);

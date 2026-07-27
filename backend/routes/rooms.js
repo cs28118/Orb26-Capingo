@@ -244,7 +244,7 @@ router.get('/:roomId/messages', async (req, res) => {
 router.post('/:roomId/messages', async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { uid, text } = req.body ?? {};
+    const { uid, text, replyToId } = req.body ?? {};
     if (!uid || !text || !String(text).trim()) {
       return res.status(400).json({ error: 'uid and non-empty text are required' });
     }
@@ -255,10 +255,23 @@ router.post('/:roomId/messages', async (req, res) => {
       return res.status(403).json({ error: 'You are not a member of this room' });
     }
 
+    let replyTo;
+    if (replyToId) {
+      const original = await Message.findOne({ _id: replyToId, roomId, deleted: { $ne: true } });
+      if (original) {
+        replyTo = {
+          messageId: original._id,
+          senderUid: original.senderUid,
+          text: original.text.slice(0, 200),
+        };
+      }
+    }
+
     const message = await Message.create({
       roomId,
       senderUid: uid,
       text: String(text).trim().slice(0, 2000),
+      ...(replyTo ? { replyTo } : {}),
     });
 
     room.updatedAt = new Date();
@@ -268,6 +281,35 @@ router.post('/:roomId/messages', async (req, res) => {
   } catch (err) {
     console.error('Error sending message:', err);
     res.status(500).json({ error: 'Server error while sending message' });
+  }
+});
+
+router.delete('/:roomId/messages/:messageId', async (req, res) => {
+  try {
+    const { roomId, messageId } = req.params;
+    const { uid } = req.query;
+    if (!uid) return res.status(400).json({ error: 'uid is required' });
+
+    const room = await Room.findById(roomId);
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+
+    const message = await Message.findOne({ _id: messageId, roomId });
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    const isSender = message.senderUid === uid;
+    const isAdmin = (room.admins || []).includes(uid);
+    if (!isSender && !isAdmin) {
+      return res.status(403).json({ error: 'Only the sender or a room admin can delete this message' });
+    }
+
+    message.deleted = true;
+    message.text = '[deleted]';
+    await message.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting message:', err);
+    res.status(500).json({ error: 'Server error while deleting message' });
   }
 });
 

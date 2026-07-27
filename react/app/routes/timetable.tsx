@@ -714,8 +714,8 @@ const handleDropTaskOnGrid = (day: string, time: string, e: React.DragEvent) => 
 
         <div className="timetable-buttons">
           <button className="action-btn" onClick={() => setActiveModal('ADDTASK')}>Add task</button>
-          <button className="action-btn variant-accent" onClick={() => setActiveModal('GENERATE')}>Generate timetable</button>
           <button className="action-btn" onClick={() => setActiveModal('MANUAL')}>Add to timetable</button>
+          <button className="action-btn variant-accent" onClick={() => setActiveModal('GENERATE')}>Generate timetable</button>
         </div>
         </div>
       </section>

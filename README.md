@@ -121,14 +121,18 @@ Plan **when** you'll study. Your timetable is **saved to MongoDB** per account.
 
 **Weekly grid (main area)**
 
-- See Mon–Sun with hourly slots from 8am–9pm
+- Current date and time is shown above the grid
+- See Mon-Sun with slots from 6am-12am
+- Show 7 hour at a time (slidable design)
+- A red line indicate the current time
 - Tasks appear as blocks on the grid (with subject badges when set)
 
-**Three ways to fill the timetable**
+**Four ways to fill the timetable**
 
 1. **Add task** — build your to-do list first
 2. **Generate timetable** — pick study days, start/end times, and a break window; Capingo schedules tasks by priority
 3. **Add to timetable** — place one block manually on a specific day and time
+4. **Drag task to timetable** - drag your task on to-do list to the timetable and it will fills in the timetable
 
 You can click **Details** on a block to edit or delete it.
 
@@ -158,6 +162,8 @@ Your **AI study co-pilot**.
 - **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages** (pending action cards stay out of the summary until resolved)
 - **New chat** starts with a **fresh memory context** (no carry-over from other threads)
 - Existing browser-only chats migrate to MongoDB automatically on first signed-in load (no manual reset needed)
+- It is now given the user progress infomation
+- User can rename / delete chat
 
 **Requirements**
 
@@ -177,7 +183,9 @@ Turn your **PDF notes** into study decks using Ollama or Gemini. Decks are **sav
 
 **How it works**
 
-1. Click **+ New** and **upload a PDF** (max 10 MB)
+Click **+ New** and **create manually** or **upload a PDF** (max 10 MB)
+
+*Below is the steps for auto generating flashcard decks:*
 2. Capingo extracts text from the PDF on the server
 3. Choose **deck title**, **card count** (5–50), and **difficulty**:
    - **Basic** — key terms and definitions
@@ -242,6 +250,25 @@ Shared spaces for accepted partners — 1:1 messaging and group study rooms. Liv
 - **Invite** accepted partners; view members; leave room
 - Admins can **kick** members, **promote** admins, and post **announcements**
 - Anyone in the room can share **resource links** (http/https)
+
+---
+
+### Collaboration space
+
+**Chat** and **interact** with your study partner
+
+
+**Personal chat**
+
+- Your study partner will show on this panel
+- You can choose your study partner and start chatting
+
+**Group chat**
+
+- You can create a room and invite your study partner
+- Invite directly / via room code
+- Admin role can kick members / promote members / make announcement
+- You can share resources (links) via resources tab in group chat
 
 ---
 

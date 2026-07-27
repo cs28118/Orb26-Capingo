@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Capingo feature test results</title>
+<style>
+  body{font-family:Georgia,serif;background:#0f1419;color:#e7ecf1;margin:0;padding:32px}
+  h1{font-size:28px;margin:0 0 8px}
+  p{opacity:.8;margin:0 0 24px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border:1px solid #2a3440;padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#1a2330}
+  tr:nth-child(even) td{background:#141b24}
+  .ok{color:#6dd19c;font-weight:700}
+  .meta{font-size:12px;opacity:.7}
+</style></head><body>
+<h1>Capingo — per-feature test results</h1>
+<p class="meta">2026-07-26 · Frontend unit 18 · Backend 33 · Playwright E2E 22 — all passed</p>
+<table>
+<thead><tr><th>Feature</th><th>E2E</th><th>Edge</th><th>Failure</th><th>Unit / Integration</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Sign in & accounts</strong><div class="meta">auth-accounts</div></td>
+  <td class="ok">PASS</td>
+  <td>register ↔ sign-in toggle</td>
+  <td>bad credentials error message</td>
+  <td>N/A (Firebase SDK)<br/>N/A</td>
+</tr>
+<tr>
+  <td><strong>Dashboard</strong><div class="meta">dashboard</div></td>
+  <td class="ok">PASS</td>
+  <td>Welcome achievement on create (integration)</td>
+  <td>profile API down → Error UI</td>
+  <td>via profile helpers<br/>GET profile creates CAPY code (backend suite)</td>
+</tr>
+<tr>
+  <td><strong>XP & levels</strong><div class="meta">xp-levels</div></td>
+  <td class="ok">PASS</td>
+  <td>streak XP capped at 100</td>
+  <td>invalid action 400; unknown user 404</td>
+  <td>via quest routes<br/>quest-action cap, claim-streak, streak XP cap 100, 404</td>
+</tr>
+<tr>
+  <td><strong>Achievements</strong><div class="meta">achievements</div></td>
+  <td class="ok">PASS</td>
+  <td>locked badges visible; skip owned (unit)</td>
+  <td>condition false → not unlocked (unit)</td>
+  <td>18 frontend tests include achievements + SM-2<br/>Welcome on profile create</td>
+</tr>
+<tr>
+  <td><strong>Timetable</strong><div class="meta">timetable</div></td>
+  <td class="ok">PASS</td>
+  <td>generate settings modal; subject casing (unit)</td>
+  <td>body without events → 400</td>
+  <td>subjectSync helpers<br/>PUT sync subjects; missing arrays → 400</td>
+</tr>
+<tr>
+  <td><strong>Chatbot</strong><div class="meta">chatbot</div></td>
+  <td class="ok">PASS</td>
+  <td>pin on save (integration)</td>
+  <td>AI down banner; invalid PUT 400</td>
+  <td>N/A<br/>chats CRUD, pin, 400/404</td>
+</tr>
+<tr>
+  <td><strong>Flashcards + SRS</strong><div class="meta">flashcards</div></td>
+  <td class="ok">PASS</td>
+  <td>caught up UI; queue cap (unit)</td>
+  <td>save error local backup message</td>
+  <td>sm2.ts (12 tests)<br/>decks PUT/GET SRS; non-array 400</td>
+</tr>
+<tr>
+  <td><strong>Study Partners</strong><div class="meta">study-partners</div></td>
+  <td class="ok">PASS</td>
+  <td>empty suggestions message</td>
+  <td>self 400; unknown code 404; dup 409</td>
+  <td>partner code, jaccard, canonical pair<br/>request/accept, suggestions, 404, self 400, dup 409</td>
+</tr>
+<tr>
+  <td><strong>Study Rooms</strong><div class="meta">study-rooms</div></td>
+  <td class="ok">PASS</td>
+  <td>already member; last admin leave (integration)</td>
+  <td>bad join code UI; DM non-partner 403</td>
+  <td>generateRoomCode<br/>create/join/DM/admin/kick/announce/resources</td>
+</tr>
+</tbody></table>
+</body></html>

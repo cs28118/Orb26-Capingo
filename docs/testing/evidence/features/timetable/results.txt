@@ -1,0 +1,77 @@
+# Timetable — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/timetable.md`  
+Code: `timetable.tsx`, `backend/utils/subjectSync.js`, `PUT /api/timetable/:uid`
+
+---
+
+## Unit tests
+
+Backend Vitest in `backend/tests/unit/helpers.test.js` (subject sync helpers):
+
+| Test | What it proves |
+|------|----------------|
+| `normalizeSubject` | Collapses extra whitespace (`"  Data   Structures  "` → `"Data Structures"`) |
+| `extractSubjectsFromTimetable` | Unique subjects from todos/events; empty string ignored; **case-insensitive** dedupe (`Math` / `math`) |
+| `intersectSubjects` | Shared subjects matched case-insensitively |
+| `jaccardScore` | Overlap score for partner matching (`shared/union`) |
+
+These feed both Timetable subject tags and Study Partners suggestions.
+
+---
+
+## Integration tests
+
+| Case | What it proves |
+|------|----------------|
+| PUT timetable with todos/events | Persists timetable and syncs subjects onto the user profile |
+| Missing `todos` / `events` arrays | Returns **400** |
+
+File: `backend/tests/integration/data.test.js` (timetable section).
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Add task | Opens Add task modal, fills title + subject + hours, Save task — new task appears on the list |
+| Generate modal | Opens Generate timetable and shows Available days / Start / End / Break controls |
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Duplicate subjects different casing | Deduped to one subject when syncing | Unit `extractSubjectsFromTimetable` |
+| Empty subject on a task | Not added to synced subject list | Unit |
+| Generate modal without generating | Settings UI still available (user can configure days/times before submit) | E2E `edge-generate-modal.png` |
+| Existing mocked task “Revise Math” | Visible on first load from GET mock | E2E add-task journey |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| PUT body without `events` (or todos) | **400** from API | Integration |
+| Generate with empty tasks / bad time window | Empty/unhelpful grid — documented as manual UX edge | Manual |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-add-task.png` | **Happy path.** After adding “E2E Biology essay” with subject Biology — proves create-task flow and subject badge on the list. |
+| `edge-generate-modal.png` | **Edge / settings UI.** Generate timetable modal open with day pills and time/break selects — proves auto-generate configuration is reachable before running the algorithm. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

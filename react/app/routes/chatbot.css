@@ -273,6 +273,76 @@
   max-width: 360px;
 }
 
+.chat-study-tip {
+  margin-top: 20px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.chat-study-tip-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-study-tip-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #92400e;
+  max-width: none;
+}
+
+.chat-study-tip-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.4;
+  max-width: none;
+}
+
+.chat-study-tip-cta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.chat-study-tip-cta:hover {
+  text-decoration: underline;
+}
+
+.chat-study-tip-dismiss {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-study-tip-dismiss:hover {
+  background: #fef3c7;
+  color: #4b5563;
+}
+
 .chat-messages-list {
   display: flex;
   flex-direction: column;
@@ -322,6 +392,69 @@
 .chat-message-assistant ul {
   margin: 0.5em 0;
   padding-left: 1.4em;
+}
+
+.chat-action-card {
+  align-self: flex-start;
+  max-width: 95%;
+  width: 100%;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chat-action-card[data-status='confirmed'] {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.chat-action-card[data-status='cancelled'],
+.chat-action-card[data-status='expired'] {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  opacity: 0.9;
+}
+
+.chat-action-summary {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.chat-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-action-confirm {
+  background: #92400e !important;
+  color: #fff !important;
+  border-color: #92400e !important;
+}
+
+.chat-action-confirm:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.chat-action-cancel {
+  background: #fff !important;
+}
+
+.chat-action-resolved {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.chat-action-resolved.muted {
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .chat-loading {

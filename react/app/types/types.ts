@@ -49,4 +49,10 @@ export interface userData {
   questsCompleteStreak?: number;
   draggedTask?: boolean;
   multitask?: boolean;
+  personalizedQuestRewards?: {
+    neglectedAction?: string;
+    reviewDeck?: { xp: number; baseXp: number; boosted: boolean };
+    chatMessage?: { xp: number; baseXp: number; boosted: boolean };
+    createDeck?: { xp: number; baseXp: number; boosted: boolean };
+  };
 }

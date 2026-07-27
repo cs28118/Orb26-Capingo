@@ -23,5 +23,6 @@ const RoomSchema = new mongoose.Schema({
 RoomSchema.index({ members: 1 });
 RoomSchema.index({ type: 1, members: 1 });
 
-module.exports = mongoose.model('Room', RoomSchema);
+const Room = mongoose.models.Room || mongoose.model('Room', RoomSchema);
+module.exports = Room;
 module.exports.generateRoomCode = generateRoomCode;

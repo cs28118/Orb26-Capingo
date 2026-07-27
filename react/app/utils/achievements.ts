@@ -113,7 +113,7 @@ export const allAchievements: AchievementDef[] = [
     message: 'You created 5 flashcard decks!',
     icon: '/assets/achievements/miner.png',
     lockedIcon: '/assets/achievements/miner-locked.png',
-    condition: (user) => (user.decksCreated || 0) > 5
+    condition: (user) => (user.decksCreated || 0) >= 5
   },
   { id: 16,
     title: 'One small step? One giant leap!',

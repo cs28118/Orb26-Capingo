@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './chatbot.css';
 import { triggerToast } from '../components/NotiHelper';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
-import { checkAndUnlockAchievements } from '../utils/achievementCheck';
+import { subscribeToAuth, type AuthUser } from '../firebaseAuth/authSubscribe';
+import { unlockFromProfile } from '../utils/unlockFromProfile';
 
 const STORAGE_KEY = 'capingo-chats';
 
@@ -24,11 +23,20 @@ const FOLLOW_UP_CHIPS = [
   'Quiz me on this',
 ];
 
+type ActionStatus = 'pending' | 'confirmed' | 'cancelled' | 'expired';
+
 type Message = {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'action';
   content: string;
   createdAt: number;
+  action?: {
+    tool: string;
+    args?: Record<string, unknown>;
+    status: ActionStatus;
+    summary?: string;
+    result?: unknown;
+  };
 };
 
 type Chat = {
@@ -50,7 +58,9 @@ type ChatSummary = {
   messageCount?: number;
 };
 
-type ApiMessage = { role: 'user' | 'assistant'; content: string };
+type ApiMessage =
+  | { role: 'user' | 'assistant'; content: string }
+  | { role: 'action'; summary: string; content?: string };
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
@@ -151,12 +161,31 @@ function createChat(): Chat {
 }
 
 function toApiMessages(messages: Message[]): ApiMessage[] {
-  return messages.map((m) => ({ role: m.role, content: m.content }));
+  return messages.flatMap((m) => {
+    if (m.role === 'user' || m.role === 'assistant') {
+      return [{ role: m.role, content: m.content }];
+    }
+    if (m.role === 'action' && m.action?.status && m.action.status !== 'pending') {
+      return [
+        {
+          role: 'action' as const,
+          summary: m.action.summary || m.content || 'Completed an in-app action',
+        },
+      ];
+    }
+    return [];
+  });
 }
 
+/** Gemini payload: recent user/assistant only. Pending actions stay out of summarization. */
 function getRecentMessages(messages: Message[]): ApiMessage[] {
-  if (messages.length <= RECENT_WINDOW) return toApiMessages(messages);
-  return toApiMessages(messages.slice(-RECENT_WINDOW));
+  const textOnly = messages.filter((m) => m.role === 'user' || m.role === 'assistant');
+  if (textOnly.length <= RECENT_WINDOW) return toApiMessages(textOnly);
+  return toApiMessages(textOnly.slice(-RECENT_WINDOW));
+}
+
+function isPendingAction(m: Message): boolean {
+  return m.role === 'action' && m.action?.status === 'pending';
 }
 
 async function refreshMemorySummary(
@@ -177,8 +206,28 @@ async function refreshMemorySummary(
   }
 
   while (memoryUpToIndex < summarizeEnd) {
-    const batchEnd = Math.min(memoryUpToIndex + SUMMARIZE_BATCH, summarizeEnd);
-    const batch = toApiMessages(chat.messages.slice(memoryUpToIndex, batchEnd));
+    // Never fold pending action messages into memory — keep them in the live window
+    if (isPendingAction(chat.messages[memoryUpToIndex])) {
+      break;
+    }
+
+    const batch: ApiMessage[] = [];
+    let batchEnd = memoryUpToIndex;
+    while (batchEnd < summarizeEnd && batch.length < SUMMARIZE_BATCH) {
+      const m = chat.messages[batchEnd];
+      if (isPendingAction(m)) break;
+      if (m.role === 'user' || m.role === 'assistant') {
+        batch.push({ role: m.role, content: m.content });
+      } else if (m.role === 'action' && m.action?.status !== 'pending') {
+        batch.push({
+          role: 'action',
+          summary: m.action?.summary || 'Completed an in-app action',
+        });
+      }
+      batchEnd += 1;
+    }
+
+    if (batch.length === 0) break;
 
     const res = await fetch(`${base}/api/summarize`, {
       method: 'POST',
@@ -282,14 +331,7 @@ const awardChatbotXP = async (uid: string) => {
         triggerToast('levelup', 'LEVEL UP!', `Level ${data.profile.level} Reached!`);
       }
       if (data.profile) {
-        const newlyUnlockedIds = checkAndUnlockAchievements(data.profile);
-        if (newlyUnlockedIds.length > 0) {
-          await fetch(`${import.meta.env.VITE_API_URL}/api/profile/unlock-achievements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid, newAchievementIds: newlyUnlockedIds })
-          });
-        }
+        await unlockFromProfile(uid, data.profile);
       }
     } catch (err) {
       console.error("Failed to award Chat XP", err);
@@ -319,12 +361,13 @@ export default function Chatbot() {
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<AuthUser | null>(null);
+  const proactiveClaimedRef = useRef(false);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       setFirebaseUser(user);
       if (!user) setIsLoadingChats(false);
     });
@@ -369,6 +412,9 @@ export default function Chatbot() {
         if ((firstSummary.messageCount ?? 0) > 0) {
           const full = await fetchFullChat(firebaseUser.uid, firstId);
           setChats((prev) => prev.map((c) => (c.id === firstId ? full : c)));
+        } else {
+          const emptyChat = chatList.find((c) => c.id === firstId);
+          if (emptyChat) await maybeSeedProactiveOpening(emptyChat);
         }
 
         setSaveError('');
@@ -430,6 +476,42 @@ export default function Chatbot() {
     }
   };
 
+  const maybeSeedProactiveOpening = async (chat: Chat): Promise<Chat> => {
+    if (!firebaseUser || proactiveClaimedRef.current) return chat;
+    if (chat.messages.length > 0) return chat;
+    try {
+      const res = await fetch(
+        `${getApiBase()}/api/dashboard/recommendations/${firebaseUser.uid}/chat-nudge?claim=1`
+      );
+      if (!res.ok) return chat;
+      const data = await res.json();
+      const text = String(data.openingMessage || '').trim();
+      if (!text) return chat;
+      proactiveClaimedRef.current = true;
+      const opening: Message = {
+        id: `msg_nudge_${getTimestamp()}`,
+        role: 'assistant',
+        content: text,
+        createdAt: getTimestamp(),
+      };
+      const withOpening: Chat = {
+        ...chat,
+        messages: [opening],
+        updatedAt: getTimestamp(),
+      };
+      setChats((prev) => prev.map((c) => (c.id === chat.id ? withOpening : c)));
+      try {
+        await persistChat(firebaseUser.uid, withOpening);
+      } catch (err) {
+        console.error('Error saving proactive opening:', err);
+      }
+      return withOpening;
+    } catch (err) {
+      console.error('Error loading chat nudge:', err);
+      return chat;
+    }
+  };
+
   const handleNewChat = async () => {
     const chat = createChat();
     setChats((prev) => [chat, ...prev]);
@@ -442,6 +524,7 @@ export default function Chatbot() {
     try {
       await createChatOnServer(firebaseUser.uid, chat);
       setSaveError('');
+      await maybeSeedProactiveOpening(chat);
     } catch (err) {
       console.error('Error creating chat:', err);
       setSaveError('Could not save new chat to the server.');
@@ -592,6 +675,7 @@ export default function Chatbot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uid: firebaseUser?.uid,
+          chatId,
           memorySummary,
           messages: getRecentMessages(withUser.messages),
         }),
@@ -603,18 +687,32 @@ export default function Chatbot() {
         throw new Error(data.error || `Request failed (${res.status})`);
       }
 
-      const assistantMessage: Message = {
-        id: `msg_${getTimestamp()}`,
-        role: 'assistant',
-        content: data.reply || '(No response)',
-        createdAt: getTimestamp(),
-      };
+      const nextMessages = [...withUser.messages];
+      if (data.reply) {
+        nextMessages.push({
+          id: `msg_${getTimestamp()}`,
+          role: 'assistant',
+          content: data.reply,
+          createdAt: getTimestamp(),
+        });
+      }
+      if (data.action && data.action.id) {
+        nextMessages.push(data.action as Message);
+      }
+      if (!data.reply && !data.action) {
+        nextMessages.push({
+          id: `msg_${getTimestamp()}`,
+          role: 'assistant',
+          content: '(No response)',
+          createdAt: getTimestamp(),
+        });
+      }
 
       chatToPersist = {
         ...withUser,
         memorySummary,
         memoryUpToIndex,
-        messages: [...withUser.messages, assistantMessage],
+        messages: nextMessages,
         updatedAt: getTimestamp(),
       };
 
@@ -640,6 +738,78 @@ export default function Chatbot() {
           setSaveError('Could not save conversation to the server. A local backup was kept.');
         }
       }
+    }
+  };
+
+  const patchActionMessage = (chatId: string, message: Message) => {
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id !== chatId
+          ? c
+          : {
+              ...c,
+              messages: c.messages.map((m) => (m.id === message.id ? message : m)),
+              updatedAt: Date.now(),
+            }
+      )
+    );
+  };
+
+  const confirmAction = async (messageId: string) => {
+    if (!firebaseUser || !activeChatId) return;
+    setActionBusyId(messageId);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${getApiBase()}/api/chats/${firebaseUser.uid}/${activeChatId}/actions/${messageId}/confirm`,
+        { method: 'POST' }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (data.message) patchActionMessage(activeChatId, data.message as Message);
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not confirm action');
+      }
+      const tool = (data.message as Message)?.action?.tool;
+      const result = (data.message as Message)?.action?.result as
+        | { xpAwarded?: number }
+        | undefined;
+      if (tool === 'create_flashcard_deck') {
+        triggerToast('quest', 'DECK', 'Flashcard deck created from chat');
+      } else if (tool === 'claim_login_streak') {
+        triggerToast(
+          'login',
+          'STREAK',
+          result?.xpAwarded ? `+${result.xpAwarded} XP claimed` : 'Streak claimed'
+        );
+      } else {
+        triggerToast(
+          'quest',
+          'DONE',
+          (data.message as Message)?.action?.summary || 'Action confirmed'
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Confirm failed');
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const cancelAction = async (messageId: string) => {
+    if (!firebaseUser || !activeChatId) return;
+    setActionBusyId(messageId);
+    try {
+      const res = await fetch(
+        `${getApiBase()}/api/chats/${firebaseUser.uid}/${activeChatId}/actions/${messageId}/cancel`,
+        { method: 'POST' }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not cancel action');
+      if (data.message) patchActionMessage(activeChatId, data.message as Message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cancel failed');
+    } finally {
+      setActionBusyId(null);
     }
   };
 
@@ -786,6 +956,48 @@ export default function Chatbot() {
                 msg.role === 'user' ? (
                   <div key={msg.id} className="chat-message-user">
                     {msg.content}
+                  </div>
+                ) : msg.role === 'action' ? (
+                  <div key={msg.id} className="chat-action-card" data-status={msg.action?.status}>
+                    <p className="chat-action-summary">
+                      {msg.action?.summary || 'Proposed action'}
+                    </p>
+                    {msg.action?.status === 'pending' && (
+                      <div className="chat-action-buttons">
+                        <button
+                          type="button"
+                          className="chat-chip chat-action-confirm"
+                          disabled={actionBusyId === msg.id || isLoading}
+                          onClick={() => void confirmAction(msg.id)}
+                        >
+                          {actionBusyId === msg.id
+                            ? msg.action.tool === 'create_flashcard_deck'
+                              ? 'Generating…'
+                              : 'Working…'
+                            : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          className="chat-chip chat-action-cancel"
+                          disabled={actionBusyId === msg.id || isLoading}
+                          onClick={() => void cancelAction(msg.id)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                    {msg.action?.status === 'confirmed' && (
+                      <p className="chat-action-resolved">✓ Done</p>
+                    )}
+                    {msg.action?.status === 'cancelled' && (
+                      <p className="chat-action-resolved muted">Cancelled</p>
+                    )}
+                    {msg.action?.status === 'expired' && (
+                      <p className="chat-action-resolved muted">
+                        {(msg.action.result as { error?: string } | undefined)?.error ||
+                          'Expired — ask Capingo to propose again'}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div key={msg.id} className="chat-message-assistant">

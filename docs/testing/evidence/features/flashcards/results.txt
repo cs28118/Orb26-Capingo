@@ -1,0 +1,79 @@
+# Flashcards + spaced repetition — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/flashcards.md`  
+Code: `react/app/utils/sm2.ts`, `flashcard.tsx`, `PUT/GET /api/decks/:uid`
+
+---
+
+## Unit tests
+
+File: `react/app/utils/sm2.test.ts` (**12** tests). Core of frontend unit suite.
+
+| Area | Cases covered |
+|------|----------------|
+| `withSrsDefaults` | Legacy cards missing ease/interval/dueAt get defaults; existing SRS fields preserved |
+| `isDue` / `isNew` / `countDue` | `dueAt: 0` is due; future dueAt not due; never-reviewed = new; countDue tallies correctly |
+| `buildStudyQueue` | Brand-new cards capped by `newLimit` (e.g. 25 → 20); due cards prioritized |
+| `reviewCard` ratings | **Again** short due + lapses++; **Hard** / **Good** / **Easy** update ease, interval, repetitions |
+
+Run: `cd react && npm test` or `npm run test:coverage`
+
+---
+
+## Integration tests
+
+| Case | What it proves |
+|------|----------------|
+| PUT/GET decks | Decks with SRS fields on cards round-trip through Mongo |
+| Non-array `decks` body | Returns **400** |
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Study due → flip → Good | Opens due session, flips card (`aria-label` Flip flashcard), rates Good, session completes |
+| Caught up | Deck with only future-due cards → “You’re caught up” + Cram all cards |
+| Save failure | After rating with PUT decks mocked to 500, `.flashcard-save-error` shows local-backup message |
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Legacy cards missing SRS fields | Treated as new/due via defaults | Unit |
+| >20 brand-new cards in one session | Queue length capped (default 20) | Unit |
+| Again rating | Card requeued soon; lapses increment | Unit |
+| Zero cards due | “You’re caught up” empty state; offer cram | E2E `edge-caught-up.png` |
+| Cram all | Studies entire deck ignoring due dates | UI present; full cram journey optional manual |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Server save fails | Error: could not save; local backup kept | Automated E2E `failure-save.png` |
+| Invalid decks payload | **400** | Integration |
+| Non-PDF / oversized upload | Upload error in UI | Manual |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-study-rate.png` | **Happy path.** After studying a due card and rating Good (session complete / library) — proves SM-2 study UI path end-to-end. |
+| `edge-caught-up.png` | **Edge.** “You’re caught up” when nothing is due — proves empty due-queue UX instead of a broken study screen. |
+| `failure-save.png` | **Failure.** Save-error banner after a failed decks PUT — proves offline/local backup messaging when the API rejects saves. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

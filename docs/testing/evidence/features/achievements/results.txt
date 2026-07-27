@@ -1,0 +1,76 @@
+# Achievements — test results (wired unlocks)
+
+Generated: 2026-07-27  
+Feature doc: `docs/testing/achievements.md`
+
+---
+
+## Unit tests
+
+| Area | What is asserted |
+|------|------------------|
+| Welcome / streak / level conditions | Thresholds for ids 1, 2, 7, 10, 16, etc. |
+| Feature flags | `helloCapy`, `masterScheduler`, `deckBuilder`, `instantiatedIndentity`, `autoAllocating`, `connectedComponent`, `multitask`, `draggedTask` |
+| Data miner | Unlocks at `decksCreated >= 5` |
+| Killer Quest I / II | `questsCompleteStreak >= 3`, `questsCompleted >= 10` |
+| `checkAndUnlockAchievements` | Returns new ids, skips owned, toasts |
+
+---
+
+## Integration tests (`achievements-wired.test.js`)
+
+| Case | Expected |
+|------|----------|
+| quest-action `chatMessage` | Sets `helloCapy` |
+| quest-action `createDeck` | Sets `deckBuilder`, increments `decksCreated` |
+| profile `update` | Sets `instantiatedIndentity` |
+| timetable-achievement types | Sets masterScheduler / autoAllocating / draggedTask / multitask |
+| Invalid type | 400 |
+| Partner accept | `connectedComponent` on both users |
+| unlock-achievements | Persists ids once (idempotent) |
+
+---
+
+## End-to-end
+
+| Journey | Status |
+|---------|--------|
+| Badge grid with Welcome + Hello Capy unlocked (mocked flags/ids) | Automated |
+| Remaining badges still show locked titles | Automated |
+
+---
+
+## How unlocks are wired (product → flag → badge)
+
+| Action | Server flag / counter | Badge |
+|--------|----------------------|-------|
+| First AI chat (quest) | `helloCapy` | Hello Capy! |
+| Add task / manual block | `masterScheduler` | Master Scheduler |
+| Generate timetable | `autoAllocating` | Auto Allocating... |
+| Drag task to grid | `draggedTask` | Drag it! |
+| Overlapping blocks | `multitask` | Multitasker |
+| Create deck (quest) | `deckBuilder` + `decksCreated` | Deck Builder / Data miner |
+| Edit profile save | `instantiatedIndentity` | Instantiated Identity |
+| Accept partner | `connectedComponent` | Connected component |
+| Streak / XP level-up | `streakDays` / `level` | Streak & level badges |
+| Quest XP awards | `questsCompleted` / daily → streak | Killer Quest I / II |
+
+Client helper: `unlockFromProfile(uid, profile)` → evaluate conditions, toast, `POST /unlock-achievements`.
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-badge-grid.png` | Full achievements page |
+| `edge-locked-badges.png` | Locked badges still visible alongside unlocked |
+| `e2e-wired-unlock.png` | Grid reflecting wired unlock ids from mock profile (Welcome + Hello Capy) |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 26 passed
+- Backend unit + integration: 40 passed
+- Playwright E2E: feature matrix includes achievements journey

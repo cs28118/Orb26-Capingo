@@ -22,5 +22,6 @@ function canonicalPair(uid1, uid2) {
   return uid1 < uid2 ? [uid1, uid2] : [uid2, uid1];
 }
 
-module.exports = mongoose.model('StudyPartnership', StudyPartnershipSchema);
+const StudyPartnership = mongoose.models.StudyPartnership || mongoose.model('StudyPartnership', StudyPartnershipSchema);
+module.exports = StudyPartnership;
 module.exports.canonicalPair = canonicalPair;

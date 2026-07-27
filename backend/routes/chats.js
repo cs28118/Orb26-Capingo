@@ -1,13 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const Chat = require('../models/chat');
+const {
+  createToolCatalog,
+  findTool,
+  normalizeMessagesWithExpiry,
+  isActionExpired,
+} = require('../utils/toolCatalog');
+
+// generateFlashcards is injected from indexGemini after boot — confirm uses the same catalog.
+let toolCatalog = createToolCatalog({});
+
+function setChatToolCatalog(catalog) {
+  toolCatalog = catalog;
+}
 
 function toFullChat(doc) {
+  const messages = normalizeMessagesWithExpiry(doc.messages || []);
   return {
     id: doc.chatId,
     title: doc.title,
     pinned: doc.pinned,
-    messages: doc.messages,
+    messages,
     memorySummary: doc.memorySummary || undefined,
     memoryUpToIndex: doc.memoryUpToIndex ?? 0,
     updatedAt: doc.updatedAt,
@@ -46,6 +60,13 @@ router.get('/:uid/:chatId', async (req, res) => {
 
     if (!doc) {
       return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    const messages = normalizeMessagesWithExpiry(doc.messages || []);
+    const changed = JSON.stringify(messages) !== JSON.stringify(doc.messages || []);
+    if (changed) {
+      doc.messages = messages;
+      await doc.save();
     }
 
     res.json(toFullChat(doc));
@@ -111,7 +132,7 @@ router.put('/:uid/:chatId', async (req, res) => {
           chatId,
           title: title ?? 'New chat',
           pinned: pinned ?? false,
-          messages,
+          messages: normalizeMessagesWithExpiry(messages, now),
           memorySummary: memorySummary ?? '',
           memoryUpToIndex: memoryUpToIndex ?? 0,
           updatedAt: updatedAt ?? now,
@@ -144,4 +165,100 @@ router.delete('/:uid/:chatId', async (req, res) => {
   }
 });
 
+/**
+ * Confirm a pending tool action (write tools).
+ * NOTE: uid is trusted from request params — see auth fix, not in scope here
+ */
+router.post('/:uid/:chatId/actions/:messageId/confirm', async (req, res) => {
+  try {
+    const { uid, chatId, messageId } = req.params;
+    const doc = await Chat.findOne({ firebaseUid: uid, chatId });
+    if (!doc) return res.status(404).json({ error: 'Chat not found' });
+
+    const messages = normalizeMessagesWithExpiry(doc.messages || []);
+    const idx = messages.findIndex((m) => m.id === messageId && m.role === 'action');
+    if (idx < 0) return res.status(404).json({ error: 'Action message not found' });
+
+    const message = messages[idx];
+    if (message.action?.status === 'expired' || isActionExpired(message)) {
+      message.action = {
+        ...(message.action || {}),
+        status: 'expired',
+        result: { error: 'This proposed action expired. Ask Capingo to propose it again.' },
+      };
+      messages[idx] = message;
+      doc.messages = messages;
+      await doc.save();
+      return res.status(410).json({ error: 'Action expired', message });
+    }
+    if (message.action?.status !== 'pending') {
+      return res.status(400).json({ error: `Action is already ${message.action?.status}` });
+    }
+
+    const tool = findTool(toolCatalog, message.action.tool);
+    if (!tool || !tool.isWrite) {
+      return res.status(400).json({ error: 'Unknown or non-writable tool' });
+    }
+
+    // NOTE: uid is trusted from request params — see auth fix, not in scope here
+    const proposal = await tool.handler(uid, message.action.args || {});
+    let result;
+    try {
+      result = await proposal.execute();
+    } catch (err) {
+      if (err.code === 'STALE' || err.code === 'CAP') {
+        message.action.status = 'expired';
+        message.action.result = { error: err.message };
+        messages[idx] = message;
+        doc.messages = messages;
+        doc.updatedAt = Date.now();
+        await doc.save();
+        return res.status(409).json({ error: err.message, message });
+      }
+      throw err;
+    }
+
+    message.action.status = 'confirmed';
+    message.action.result = result;
+    messages[idx] = message;
+    doc.messages = messages;
+    doc.updatedAt = Date.now();
+    await doc.save();
+
+    res.json({ success: true, message });
+  } catch (err) {
+    console.error('Error confirming action:', err);
+    res.status(500).json({ error: err.message || 'Server error while confirming action' });
+  }
+});
+
+router.post('/:uid/:chatId/actions/:messageId/cancel', async (req, res) => {
+  try {
+    const { uid, chatId, messageId } = req.params;
+    const doc = await Chat.findOne({ firebaseUid: uid, chatId });
+    if (!doc) return res.status(404).json({ error: 'Chat not found' });
+
+    const messages = normalizeMessagesWithExpiry(doc.messages || []);
+    const idx = messages.findIndex((m) => m.id === messageId && m.role === 'action');
+    if (idx < 0) return res.status(404).json({ error: 'Action message not found' });
+
+    const message = messages[idx];
+    if (message.action?.status !== 'pending' && message.action?.status !== 'expired') {
+      return res.status(400).json({ error: `Action is already ${message.action?.status}` });
+    }
+
+    message.action = { ...(message.action || {}), status: 'cancelled' };
+    messages[idx] = message;
+    doc.messages = messages;
+    doc.updatedAt = Date.now();
+    await doc.save();
+
+    res.json({ success: true, message });
+  } catch (err) {
+    console.error('Error cancelling action:', err);
+    res.status(500).json({ error: 'Server error while cancelling action' });
+  }
+});
+
 module.exports = router;
+module.exports.setChatToolCatalog = setChatToolCatalog;

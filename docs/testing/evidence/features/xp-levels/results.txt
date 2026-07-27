@@ -1,0 +1,80 @@
+# XP & levels — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/xp-levels.md`  
+APIs: `POST /api/profile/quest-action`, `POST /api/profile/claim-streak`
+
+---
+
+## Unit tests
+
+No isolated XP math module. XP gain, level-up loops, and daily caps live inside Express route handlers and are exercised by **integration** tests.
+
+Related frontend unit coverage:
+- Achievement conditions that depend on `level` / `streakDays` (`achievements.test.ts`)
+
+---
+
+## Integration tests
+
+| Case | What it proves |
+|------|----------------|
+| `reviewDeck` quest XP | Awards XP on first/second review, then daily cap (limit 2) with a cap message |
+| Invalid `actionType` | Returns **400** |
+| Claim streak once | Sets `dailyProgress.streakClaimed`, adds XP, returns success message |
+| Claim streak twice same day | Returns already-claimed style message; no double XP |
+| Streak XP cap | With `streakDays: 12`, message matches `+100 XP` and `currentXp` increases by at most 100 (`Math.min(streak*20, 100)`) |
+| Unknown uid claim | Returns **404** |
+
+File: `backend/tests/integration/chats-profile.test.js` (+ quest-action cases in profile/data suites).
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Dashboard XP display | Level 2 and `40/150 XP` (or equivalent) visible from mocked profile |
+| Claim streak UI | Claim button → Claimed state after successful mock response |
+
+Full level-up toast during flashcard study is still partly manual (needs real quest responses over time).
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Third `reviewDeck` same day | Cap message; no extra XP | Integration |
+| Long streak (≥ 5 days) | Streak claim XP capped at **100** | Integration (`caps streak XP at 100`) |
+| Level-up when XP crosses threshold | `leveledUp: true`, level increments, leftover XP | Integration / code path on claim & quest-action |
+| Dashboard shows current XP/level | UI mirrors profile payload | E2E `e2e-dashboard-xp.png` |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Invalid quest `actionType` | **400** | Integration |
+| Unknown user on claim-streak | **404** | Integration |
+| Claim when profile API already failed | Dashboard never loads claim UI | Covered by dashboard failure E2E |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-dashboard-xp.png` | **Happy path.** Dashboard showing Level and XP bar/text from profile — proves XP is visible in the product UI. |
+| `e2e-claim-streak.png` | **Happy path.** After claiming daily streak XP — proves the claim action updates profile-driven UI (Claimed / XP change). |
+
+(API edge/failure cases for XP are evidenced in `docs/testing/evidence/integration/backend-vitest.txt`, not as UI screenshots.)
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

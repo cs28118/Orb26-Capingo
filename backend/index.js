@@ -14,7 +14,8 @@ connectDB();
 const PORT = process.env.PORT || 5000;
 const ALLOWED_ORIGINS = (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
   .split(',')
-  .map((o) => o.trim());
+  .map((s) => s.trim())
+  .filter(Boolean);
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 const MAX_PDF_BYTES = Number(process.env.MAX_PDF_MB || 10) * 1024 * 1024;
@@ -301,11 +302,15 @@ const timetableRoutes = require('./routes/timetable');
 const deckRoutes = require('./routes/decks');
 const chatRoutes = require('./routes/chats');
 const partnerRoutes = require('./routes/partners');
+const roomRoutes = require('./routes/rooms');
+const dashboardRoutes = require('./routes/dashboard');
 app.use('/api/profile', profileRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/decks', deckRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/partners', partnerRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.get('/', (req, res) => {
   res.send('Capingo is running');
 });
@@ -465,7 +470,7 @@ const io = new Server(server, {
 });
 registerChatSocket(io);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is on port ${PORT}`);
   console.log(`Ollama proxy: ${OLLAMA_BASE_URL} (model: ${OLLAMA_MODEL})`);
   console.log('Socket.IO ready for real-time chat');

@@ -4,6 +4,8 @@
 
 Repository: [github.com/cs28118/Orb26-Capingo](https://github.com/cs28118/Orb26-Capingo)
 
+[![CI](https://github.com/cs28118/Orb26-Capingo/actions/workflows/ci.yml/badge.svg)](https://github.com/cs28118/Orb26-Capingo/actions/workflows/ci.yml)
+
 ---
 
 ## What Capingo does
@@ -50,6 +52,23 @@ Your home screen after login.
 - Claim login streak XP (20 XP per streak day, capped at 100 XP)
 - Quests for flashcard reviews, chat messages, and deck creation
 
+**Study snapshot widgets**
+
+- **Upcoming tasks** — next timetable todos (subject, priority, hours) with link to Timetable
+- **Cards due** — total SM-2 due cards and top decks; link to Flashcards
+- **Recent chats** — latest Capingo AI chats; link to Chatbot
+- **Study rooms** — recent rooms / DMs; link to Study Rooms
+- Each widget fails soft (empty/error copy) without breaking the rest of the Dashboard
+
+**For you (Smart Recommendations)**
+
+- Rule-based nudges from your timetable, decks, streak, and quests (no extra form)
+- New accounts see **Get started** tips (timetable, deck, profile, chat)
+- Dismiss hides a tip for the rest of the day
+- **Chatbot** may open a new empty chat with one collaborative tip (priority ≥ 70, once per day)
+- **Quests** keep the same list for everyone; the most-neglected action gets a **1.25×** XP weight (★ on Dashboard)
+- **Flashcards** remember finished vs abandoned study sessions and pre-fill card count / difficulty (with a soft “too many cards” warning when relevant)
+
 ---
 
 ### XP & levels
@@ -67,25 +86,25 @@ Earn XP for studying on Capingo. Your level, XP bar, and daily progress are stor
 
 Unlock badges for milestones. The Dashboard shows a preview; **View all** opens the full achievements page (`/home/achievements`).
 
-**Currently unlockable**
+**Unlock pipeline:** real study actions set profile flags/counters on the server → Capingo evaluates badge conditions → toast + save achievement ids.
 
-- **Welcome!** — awarded on first visit
-- **3 / 5 / 10 Days Streak** — login streak milestones
-- **Hello Capy!** - chatted with Capingo 
-- **Master Scheduler** - manually added block to timetable
-- **Deck Builder** - created a flashcard deck
-- **Instantiated Identity** - updated profile card
-- **Auto Allocating...** - auto generated timetable
-- **One small step? One giant leap!**, **Climbing up...**, **Reached the peak!** - level milestones
-- **Killer Quest I**, **Killer Quest II** - quest milestones
-- **Connected component** - added stidu partner
-- **Data Miner** - created 5 flashcard decks
-- **Multitasker** - put multiple task in same timeslot
-- **Drag it!** - dragged a task to timetable
+**Wired unlocks**
 
-**Shown locked (coming soon)**
-
-- Capy Chatter, Master Scheduler, Flashcard master, DIY master — visible in the grid but not yet wired to unlock actions
+| Badge | How you unlock it |
+|-------|-------------------|
+| **Welcome!** | First visit / profile create |
+| **3 / 5 / 10 Days Streak** | Login streak milestones |
+| **Hello Capy!** | First Capingo AI chat message |
+| **Master Scheduler** | Add a timetable task or place a block manually |
+| **Deck Builder** | Create a flashcard deck |
+| **Instantiated Identity** | Save an edited profile |
+| **Auto Allocating...** | Successfully generate a timetable |
+| **Climbing up... / peak / One small step** | Reach levels 5 / 10 / 2 |
+| **Killer Quest I / II** | Complete quests 3 days in a row / 10 quests total |
+| **Connected component** | Accept (or be accepted as) a study partner |
+| **Data miner** | Create 5 flashcard decks |
+| **Multitasker** | Overlap multiple blocks in the same timeslot |
+| **Drag it!** | Drag a task onto the timetable grid |
 
 ---
 
@@ -137,9 +156,10 @@ Your **AI study co-pilot**.
 **How it works**
 
 - Ask anything study-related — explanations, summaries, quiz help, study plans
+- **Gemini only:** Capingo can propose timetable, flashcard, and streak actions — you get a Confirm / Cancel card before anything is written
 - Replies can use **bold text** and lists for readability
 - Chats are **saved in MongoDB** (one document per conversation) so they survive refresh when signed in
-- **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages**
+- **Smart memory:** long conversations are summarized so the AI gets a short memory note plus only the **most recent messages** (pending action cards stay out of the summary until resolved)
 - **New chat** starts with a **fresh memory context** (no carry-over from other threads)
 - Existing browser-only chats migrate to MongoDB automatically on first signed-in load (no manual reset needed)
 - It is now given the user progress infomation
@@ -173,8 +193,10 @@ Click **+ New** and **create manually** or **upload a PDF** (max 10 MB)
    - **Advanced** — exam-style application questions
 4. AI generates **front** (question/term) and **back** (answer) cards
 5. **Edit** cards — change text, add, or delete before studying
-6. **Study mode** — flip cards (click or Space), previous/next, shuffle; finish a deck to claim daily quest XP
-7. Decks auto-save to the database; older browser-only decks migrate on first signed-in load (no manual reset needed)
+6. **Study due** — spaced repetition (simplified SM-2): study cards that are due, flip, then rate **Again / Hard / Good / Easy**. Intervals grow with good recall; Again brings the card back soon in the same session
+7. **Cram all** — optional full-deck review when you want extra practice (still updates scheduling when you rate)
+8. Deck list shows **X due**; finish ~10 ratings or clear the due queue to claim daily review quest XP
+9. Decks auto-save to the database (including SRS fields); older decks without schedule data are treated as new/due
 
 **Supported PDFs**
 
@@ -203,6 +225,31 @@ Find classmates studying the same subjects.
 
 - Send a **partner request** → **accept** or **decline**
 - Accepted partners show **shared subjects**; remove a partner anytime
+- **Message** opens a 1:1 chat in Study Rooms
+
+---
+
+### Study Rooms (Collaboration Space)
+
+Shared spaces for accepted partners — 1:1 messaging and group study rooms. Live chat uses **Socket.IO**; room data is stored in **MongoDB**.
+
+**Layout** (`/home/space`)
+
+- **Left:** Friends (accepted partners) and Study rooms list
+- **Main:** chat thread; for group rooms also **Announcements** and **Resources** tabs
+
+**Partner messaging (1:1)**
+
+- Click a friend (or **Message** from Study Partners) to open a direct room
+- Only works with **accepted** partners
+
+**Group study rooms**
+
+- **Create** a room with a name → get a shareable `ROOM-XXXXXX` code
+- **Join** with a room code
+- **Invite** accepted partners; view members; leave room
+- Admins can **kick** members, **promote** admins, and post **announcements**
+- Anyone in the room can share **resource links** (http/https)
 
 ---
 
@@ -228,7 +275,7 @@ Find classmates studying the same subjects.
 ## Look & feel
 
 - **Yellow navigation bar** with the Capingo logo (capybara with graduation cap)
-- Sections: Dashboard, Timetable, Chatbot, Flashcard, Study Partners
+- Sections: Dashboard, Timetable, Chatbot, Flashcard, Study Partners, Study Rooms
 - **Log out** in the top-right when you're done
 
 ---
@@ -322,7 +369,7 @@ Open **http://localhost:5173/**
 
 > Use **localhost**, not `127.0.0.1`, if the page doesn't load.
 
-**Flow:** sign in → **Timetable** (add subjects) → **Chatbot** → **Flashcard** → **Study Partners**
+**Flow:** sign in → **Timetable** (add subjects) → **Study Partners** → **Study Rooms** → **Chatbot** → **Flashcard**
 
 ---
 
@@ -364,17 +411,77 @@ Both frontend and backend env vars are required for chatbot, flashcards, timetab
 
 ---
 
+## Testing & continuous integration
+
+Capingo uses **one shared GitHub Actions pipeline** for the whole repo (not one pipeline per feature). Feature-level matrices, edge/failure cases, and screenshots live under [`docs/testing/`](docs/testing/); CI details are in [`docs/ci.md`](docs/ci.md).
+
+### Checklist
+
+| Item | Status |
+|------|--------|
+| **Unit test coverage** | Frontend: Vitest for SM-2, achievements, dashboard widgets. Backend: partner/room codes, subject sync, canonical pair |
+| **Integration tests** | Backend Vitest + Supertest + in-memory Mongo — rooms, partners, decks, timetable, chats, profile, wired achievements |
+| **End-to-end testing** | Playwright **22 passed**: signed-in feature matrix (bypass + API mocks) + login-form project (register toggle, bad credentials) |
+| **Edge cases** | Automated per feature (caught-up flashcards, empty suggestions, generate modal, register toggle, streak XP cap, …) — see feature docs |
+| **Failure cases** | Automated UI + API (profile down, AI down, deck save fail, bad join code, bad credentials, 400/403/404/409) |
+| **Screenshots of test results** | Per-feature PNGs + results board: [`docs/testing/evidence/features/`](docs/testing/evidence/features/) |
+| **CI pipeline passing** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — frontend typecheck + unit, backend unit + integration, Playwright E2E. Green run evidence: [`docs/testing/evidence/ci/actions-green.png`](docs/testing/evidence/ci/actions-green.png) |
+| **Code coverage reports** | `npm run test:coverage` in `react/` and `backend/` → HTML under `*/coverage` (gitignored). Summaries: [`docs/testing/evidence/coverage/`](docs/testing/evidence/coverage/) |
+
+### Run tests locally
+
+```powershell
+# Frontend unit + coverage + E2E smoke
+cd react
+npm run typecheck
+npm run test:coverage
+npm run test:e2e
+
+# Backend unit + integration + coverage
+cd ../backend
+npm run test:coverage
+```
+
+### Per-feature testing docs
+
+| Feature | Doc |
+|---------|-----|
+| Sign in & accounts | [docs/testing/auth-accounts.md](docs/testing/auth-accounts.md) |
+| Dashboard | [docs/testing/dashboard.md](docs/testing/dashboard.md) |
+| XP & levels | [docs/testing/xp-levels.md](docs/testing/xp-levels.md) |
+| Achievements | [docs/testing/achievements.md](docs/testing/achievements.md) |
+| Timetable | [docs/testing/timetable.md](docs/testing/timetable.md) |
+| Chatbot | [docs/testing/chatbot.md](docs/testing/chatbot.md) |
+| Flashcards + SRS | [docs/testing/flashcards.md](docs/testing/flashcards.md) |
+| Study Partners | [docs/testing/study-partners.md](docs/testing/study-partners.md) |
+| Study Rooms | [docs/testing/study-rooms.md](docs/testing/study-rooms.md) |
+
+### CI jobs
+
+| Job | What it runs |
+|-----|----------------|
+| **Frontend** | `npm ci` → typecheck → Vitest + coverage artifact |
+| **Backend** | `npm ci` → Vitest unit/integration + coverage artifact |
+| **E2E** | Playwright Chromium — signed-in feature matrix + login-form (bypass off) |
+
+Badge at the top of this README reflects the latest workflow run on GitHub.
+
+---
+
 ## Project structure
 
 ```text
 Orb26-Capingo/
+├── .github/workflows/  CI pipeline
+├── docs/               CI + per-feature testing docs
 ├── backend/
 │   ├── models/       Mongoose schemas
 │   ├── routes/       REST API
 │   ├── utils/        Subject sync, partner codes
-│   ├── index.js      Ollama backend
-│   └── indexGemini.js Gemini backend
-├── react/            Vite + React website
+│   ├── tests/        Unit + integration tests
+│   ├── index.js      Ollama backend + Socket.IO
+│   └── indexGemini.js Gemini backend + Socket.IO
+├── react/            Vite + React website (+ Vitest / Playwright)
 └── README.md
 ```
 
@@ -382,20 +489,21 @@ Orb26-Capingo/
 
 **AI:** `POST /api/chat`, `POST /api/summarize`, `POST /api/flashcards/*`, `GET /api/health`
 
-**Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/unlock-achievements`, `POST /api/profile/update`
+**Profile:** `GET /api/profile/:uid`, `POST /api/profile/claim-streak`, `POST /api/profile/quest-action`, `POST /api/profile/update`, `POST /api/profile/timetable-achievement`, `POST /api/profile/unlock-achievements`
 
-**Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET|POST|PUT|DELETE /api/chats/:uid/...`
+**Dashboard:** `GET /api/dashboard/recommendations/:uid`, `GET /api/dashboard/recommendations/:uid/chat-nudge`, `POST /api/dashboard/recommendations/dismiss`
+
+**Data:** `GET|PUT /api/timetable/:uid`, `GET|PUT /api/decks/:uid`, `GET /api/decks/:uid/adaptive-defaults`, `POST /api/decks/:uid/sessions`, `GET|POST|PUT|DELETE /api/chats/:uid/...`, `POST /api/chats/:uid/:chatId/actions/:messageId/confirm|cancel`
 
 **Partners:** `GET /api/partners/suggestions/:uid`, `GET /api/partners/:uid`, `POST /api/partners/request`, `POST /api/partners/accept`, `POST /api/partners/decline`, `PUT /api/partners/subjects/:uid`
+
+**Rooms:** `GET /api/rooms/:uid`, `POST /api/rooms/direct`, `POST /api/rooms/group`, `POST /api/rooms/join`, messages / members / announcements / resources under `/api/rooms/:roomId/...` + Socket.IO realtime chat
 
 ---
 
 ## What's next
 
-- Partner messaging or shared study rooms
 - Firebase token verification on API routes
-- Dashboard widgets (upcoming tasks, recent chats)
-- Spaced repetition for flashcard study
 
 ---
 

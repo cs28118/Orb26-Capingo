@@ -1,0 +1,70 @@
+# Sign in & accounts — test results
+
+Generated: 2026-07-26  
+Feature doc: `docs/testing/auth-accounts.md`  
+How to re-run E2E for this area: `cd react && npx playwright test e2e/auth-form.spec.ts e2e/login.spec.ts`
+
+---
+
+## Unit tests
+
+No dedicated unit tests. Login is driven by the Firebase Auth SDK (`signInWithEmailAndPassword`, `createUserWithEmailAndPassword`, Google popup). There is almost no pure logic to unit-test without mocking the entire SDK.
+
+What we rely on instead:
+- Playwright against a real Vite build of the login page
+- `VITE_E2E_BYPASS_AUTH` stub for signed-in shell tests (see `react/app/firebaseAuth/authSubscribe.ts`)
+
+---
+
+## Integration tests
+
+None for Firebase token verification on the server. Capingo currently trusts the client Firebase UID when calling Express APIs. Server-side ID-token checks are listed as future work in the feature doc.
+
+---
+
+## End-to-end tests
+
+| Test | What it proves |
+|------|----------------|
+| Bypass home | With `VITE_E2E_BYPASS_AUTH=1`, visiting `/` lands in `/home` with partner code / quest UI (no real Firebase login). |
+| Login form branding | With bypass **off** (Playwright `login-form` project on port 5174), `/` shows Capingo heading + “Enter Capingo!” |
+| Register toggle | Clicking “Create an account” switches copy to Join Capingo / Create Account and shows email/password fields. |
+| Bad credentials | Submitting a fake email/password shows the red `.error-message` from Firebase (or stub-key failure mapped to UI error). |
+
+---
+
+## Edge cases
+
+| Case | Expected behaviour | How verified |
+|------|--------------------|--------------|
+| Register ↔ sign-in toggle | Labels and primary button text switch without a full page reload | Playwright `edge-register-toggle` |
+| Stay signed in after refresh | Firebase persistence keeps session | Manual (needs real Firebase keys) |
+| Bypass on in CI | Login form test is not required on the signed-in project; separate `login-form` project covers the form | Playwright projects in `playwright.config.ts` |
+
+---
+
+## Failure cases
+
+| Failure | Expected behaviour | How verified |
+|---------|--------------------|--------------|
+| Wrong password / invalid credentials | UI shows error (e.g. incorrect email/password or unexpected auth error with stub keys) | Automated — `failure-bad-credentials.png` |
+| Missing Firebase env | Stub keys still allow the login page to mount in CI | Automated smoke / login-form project |
+
+---
+
+## Screenshots in this folder
+
+| File | Meaning |
+|------|---------|
+| `e2e-bypass-home.png` | **Happy path (signed-in).** After auth bypass, user is on Dashboard `/home` with partner code visible — proves protected routes work without Firebase secrets in CI. |
+| `e2e-login-form.png` | **Happy path (signed-out).** Public login page with Capingo branding and Enter Capingo — proves the auth entry screen renders. |
+| `edge-register-toggle.png` | **Edge.** Same page after toggling to Create an account / Join Capingo — proves register mode UI. |
+| `failure-bad-credentials.png` | **Failure.** Error message shown after submitting bad credentials — proves auth failures are surfaced to the user. |
+
+---
+
+## Suite totals (repo)
+
+- Frontend unit: 18 passed
+- Backend unit + integration: 33 passed
+- Playwright E2E: 22 passed

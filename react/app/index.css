@@ -71,3 +71,14 @@ code {
   border-radius: 4px;
   color: var(--text-h);
 }
+
+.page-loading-state {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 16px;
+  color: #6b7280;
+  font-size: 1rem;
+}

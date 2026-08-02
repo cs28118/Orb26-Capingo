@@ -986,7 +986,7 @@ export default function Flashcards() {
   return (
     <div className="flashcard-page">
       {isLoadingDecks ? (
-        <div className="flashcard-loading-decks">Loading your decks...</div>
+        <div className="page-loading-state">Loading your decks...</div>
       ) : (
       <>
       <aside className="flashcard-sidebar">

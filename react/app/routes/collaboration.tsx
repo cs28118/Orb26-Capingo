@@ -298,7 +298,7 @@ export default function Collaboration() {
   if (isLoading) {
     return (
       <div className="collaboration-page">
-        <div className="collab-loading">Loading study partners...</div>
+        <div className="page-loading-state">Loading study partners...</div>
       </div>
     );
   }

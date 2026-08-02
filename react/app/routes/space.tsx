@@ -548,7 +548,7 @@ export default function Space() {
   if (isLoading) {
     return (
       <div className="space-page">
-        <div className="space-loading">Loading collaboration space...</div>
+        <div className="page-loading-state">Loading collaboration space...</div>
       </div>
     );
   }

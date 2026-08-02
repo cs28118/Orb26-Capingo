@@ -830,7 +830,7 @@ export default function Chatbot() {
   if (isLoadingChats) {
     return (
       <div className="chatbot-page">
-        <div className="chatbot-loading">Loading your conversations...</div>
+        <div className="page-loading-state">Loading your conversations...</div>
       </div>
     );
   }

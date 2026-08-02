@@ -78,9 +78,9 @@ function getMondayOfWeek(reference: Date): Date {
   return d;
 }
 
-function getDateForDayThisWeek(dayName: string, reference: Date): Date {
+function getDateForDayThisWeek(dayName: string, reference: Date, weekOffset = 0): Date {
   const monday = getMondayOfWeek(reference);
-  const offsetFromMonday = DAY_TO_INDEX[dayName];
+  const offsetFromMonday = DAY_TO_INDEX[dayName] + weekOffset * 7;
   const result = new Date(monday);
   result.setDate(monday.getDate() + offsetFromMonday);
   return result;
@@ -96,8 +96,8 @@ function parseHourLabel(label: string): number {
   return hour;
 }
 
-function getSlotDateTime(dayName: string, hourLabel: string, reference: Date): Date {
-  const dayDate = getDateForDayThisWeek(dayName, reference);
+function getSlotDateTime(dayName: string, hourLabel: string, reference: Date, weekOffset = 0): Date {
+  const dayDate = getDateForDayThisWeek(dayName, reference, weekOffset);
   dayDate.setHours(parseHourLabel(hourLabel), 0, 0, 0);
   return dayDate;
 }
@@ -506,15 +506,17 @@ const handleAutoGenerateSubmit = (e: React.FormEvent) => {
     return;
   }
 
-  const referenceNow = new Date();
+    const referenceNow = new Date();
   const generatedEvents: Event[] = [];
   const unscheduledTasks: string[] = [];
+  const MAX_WEEKS_LOOKAHEAD = 8;
   let currentDayIdx = 0;
   let currentHourIdx = timeslots.indexOf(selectedStart);
   const endHourIdx = timeslots.indexOf(selectedEnd);
   const hasBreak = breakStart !== 'NONE' && breakEnd !== 'NONE';
   const breakStartIdx = hasBreak ? timeslots.indexOf(breakStart) : -1;
   const breakEndIdx = hasBreak ? timeslots.indexOf(breakEnd) : -1;
+  const maxDayIdx = enabledDays.length * MAX_WEEKS_LOOKAHEAD;
   const sortedTasks = [...todoList].sort((a, b) => {
     const rank = { High: 3, Medium: 2, Low: 1 };
     return rank[b.priority] - rank[a.priority];
@@ -523,8 +525,9 @@ const handleAutoGenerateSubmit = (e: React.FormEvent) => {
   sortedTasks.forEach((task) => {
     let hoursRemaining = task.hoursNeeded;
     const deadlineDate = task.deadline ? new Date(`${task.deadline}T23:59:59`) : null;
-    while (hoursRemaining > 0 && currentDayIdx < enabledDays.length) {
-      const activeDayStr = enabledDays[currentDayIdx];
+    while (hoursRemaining > 0 && currentDayIdx < maxDayIdx) {
+      const weekOffset = Math.floor(currentDayIdx / enabledDays.length);
+      const activeDayStr = enabledDays[currentDayIdx % enabledDays.length];
       if (currentHourIdx >= endHourIdx) {
         currentHourIdx = timeslots.indexOf(selectedStart);
         currentDayIdx++;
@@ -534,7 +537,7 @@ const handleAutoGenerateSubmit = (e: React.FormEvent) => {
         currentHourIdx = breakEndIdx;
         continue;
       }
-      const slotDateTime = getSlotDateTime(activeDayStr, timeslots[currentHourIdx], referenceNow);
+      const slotDateTime = getSlotDateTime(activeDayStr, timeslots[currentHourIdx], referenceNow, weekOffset);
       if (slotDateTime < referenceNow) {
         currentHourIdx++;
         continue;
@@ -663,7 +666,7 @@ const handleDropTaskOnGrid = (day: string, time: string, e: React.DragEvent) => 
   if (isLoading) {
     return (
       <div className="timetable-wrapper">
-        <p className="timetable-loading">Loading your timetable...</p>
+        <p className="page-loading-state">Loading your timetable...</p>
       </div>
     );
   }

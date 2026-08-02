@@ -31,7 +31,7 @@ export default function Achievements() {
   if (isLoading) {
     return (
       <div className="achievements-page-container">
-        <h1 className="section-title">Loading badges...</h1>
+        <h1 className="page-loading-state">Loading badges...</h1>
       </div>
     );
   }
